@@ -48,7 +48,7 @@ This app serves to inform and connect local badminton communities who want to me
 
 1. **Start the Expo Development Server**  
    - In the project directory (see step 4) run:  
-     `expo start`  
+     `npm start`  
    - This will open the Expo Dev Tools in your browser.
 
 2. **Run the App on Your Device or Simulator**  
