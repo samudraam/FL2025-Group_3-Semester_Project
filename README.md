@@ -60,8 +60,7 @@ This app serves to inform and connect local badminton communities who want to me
      - For Android: Press `a` in the terminal to open in an Android emulator (requires Android Studio).
 
 3. **Troubleshooting**  
-   - If you encounter errors, check the terminal output for hints.
-   - Make sure all dependencies are installed and your device/emulator is set up. (repeat step 5 from setup) 
+   - Make sure all dependencies are installed and your device/emulator is set up. (repeat step 4 from setup) 
 
 4. **Stop the Development Server**  
    - Press `Ctrl + C` in the terminal to stop Expo.
