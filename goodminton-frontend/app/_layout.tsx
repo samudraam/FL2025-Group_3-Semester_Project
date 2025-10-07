@@ -1,16 +1,14 @@
-import * as React from "react";
 import { Stack } from "expo-router";
+import { AuthProvider } from "../services/authContext";
 
 export default function AuthLayout() {
     return (
-        <Stack
-            screenOptions={{
-                contentStyle: {
-                    backgroundColor: "#0E5B37"
-                },
-                headerShown: false,
-            }}
-        >
-        </Stack>
+        <AuthProvider>
+            <Stack screenOptions={{ animation: "fade" }}>
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="auth" options={{ headerShown: false }} />
+                <Stack.Screen name="tabs" options={{ headerShown: false }} />
+            </Stack>
+        </AuthProvider>
     );
 }

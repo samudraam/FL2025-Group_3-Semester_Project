@@ -64,3 +64,6 @@ This app serves to inform and connect local badminton communities who want to me
 
 4. **Stop the Development Server**  
    - Press `Ctrl + C` in the terminal to stop Expo.
+
+### Running the backend:
+1. Go to this link for the backend: ()[]?? to be continued 

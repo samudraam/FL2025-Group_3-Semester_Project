@@ -48,7 +48,7 @@ const s = StyleSheet.create({
     // Position court
     court: {
         position: "absolute",
-        left: -50,
+        left: -55,
         top: -270,
         height: "180%",
         aspectRatio: 1,
