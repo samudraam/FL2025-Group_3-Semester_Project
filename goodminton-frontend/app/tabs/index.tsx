@@ -1,24 +1,85 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useAuth } from '../../services/authContext';
 import { router } from 'expo-router';
+import BottomNavPill from '../../components/BottomNavPill';
+import { HomeIcon, RankingsIcon, CommunityIcon, CourtsIcon } from '../../components/NavIcons';
 
 export default function Home() {
     const { user, logout } = useAuth();
+    const [activeTab, setActiveTab] = useState('home');
 
     const handleLogout = async () => {
         await logout();
         router.replace('/auth/login');
     };
 
+    /**
+     * Handle navigation between tabs
+     */
+    const handleTabPress = (tabId: string) => {
+        setActiveTab(tabId);
+        
+        // Navigate to the appropriate screen
+        switch (tabId) {
+            case 'home':
+                router.replace('/tabs');
+                break;
+            case 'rankings':
+                router.replace('/tabs/rankings');
+                break;
+            case 'community':
+                router.replace('/tabs/community');
+                break;
+            case 'courts':
+                router.replace('/tabs/courts');
+                break;
+        }
+    };
+
+    /**
+     * Navigation items configuration
+     */
+    const navItems = [
+        {
+            id: 'home',
+            label: 'home',
+            icon: <HomeIcon />,
+        },
+        {
+            id: 'rankings',
+            label: 'rankings',
+            icon: <RankingsIcon />,
+        },
+        {
+            id: 'community',
+            label: 'community',
+            icon: <CommunityIcon />,
+        },
+        {
+            id: 'courts',
+            label: 'courts',
+            icon: <CourtsIcon />,
+        },
+    ];
+
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>Welcome to Goodminton!</Text>
-            <Text style={styles.subtitle}>Hello, {user?.profile?.displayName || user?.email}!</Text>
+            <View style={styles.content}>
+                <Text style={styles.title}>Welcome to Goodminton!</Text>
+                <Text style={styles.subtitle}>Hello, {user?.profile?.displayName || user?.email}!</Text>
+                
+                <Pressable style={styles.logoutButton} onPress={handleLogout}>
+                    <Text style={styles.logoutText}>Logout</Text>
+                </Pressable>
+            </View>
             
-            <Pressable style={styles.logoutButton} onPress={handleLogout}>
-                <Text style={styles.logoutText}>Logout</Text>
-            </Pressable>
+            {/* Custom Bottom Navigation Pill */}
+            <BottomNavPill 
+                items={navItems}
+                activeTab={activeTab}
+                onTabPress={handleTabPress}
+            />
         </View>
     );
 }
@@ -26,10 +87,14 @@ export default function Home() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: '#f5f5f5',
+    },
+    content: {
+        flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
-        backgroundColor: '#f5f5f5',
+        paddingBottom: 100, 
     },
     title: {
         fontSize: 24,
