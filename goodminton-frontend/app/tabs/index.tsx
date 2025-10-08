@@ -33,12 +33,13 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 24,
-        fontWeight: 'bold',
+        fontFamily: 'DMSans_700Bold',
         color: '#0E5B37',
         marginBottom: 10,
     },
     subtitle: {
         fontSize: 16,
+        fontFamily: 'DMSans_400Regular',
         color: '#666',
         marginBottom: 30,
     },
@@ -50,6 +51,6 @@ const styles = StyleSheet.create({
     },
     logoutText: {
         color: 'white',
-        fontWeight: '600',
+        fontFamily: 'DMSans_600SemiBold',
     },
 });

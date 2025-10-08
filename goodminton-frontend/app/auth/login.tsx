@@ -45,11 +45,6 @@ export default function Login() {
         try {
             await requestOTP(email.trim());
             setOtpSent(true);
-            Alert.alert(
-                "Code Sent!",
-                "We've sent a 6-digit verification code to your email. Please check your inbox.",
-                [{ text: "OK" }]
-            );
         } catch (error: any) {
             console.error('Request OTP error:', error);
             Alert.alert(
@@ -182,7 +177,7 @@ export default function Login() {
                                 </Text>
 
                                 <TextInput
-                                    placeholder="Enter 6-digit code"
+                                    placeholder="_ _ _ _ _ _"
                                     placeholderTextColor="#A9A9A9"
                                     style={[s.input, s.otpInput]}
                                     value={otp}
@@ -241,18 +236,10 @@ export default function Login() {
                         )}
 
                         <View style={s.rowEnd}>
-                            <Link href="/auth/forgot-password">
+                            <Link href="/auth/login">
                                 <Text style={s.link}>Need Help?</Text>
                             </Link>
                         </View>
-                    </View>
-
-                    {/* FOOTER */}
-                    <View style={s.footer}>
-                        <Text style={s.footerText}>Don't have an account? </Text>
-                        <Link href="/auth/signup">
-                            <Text style={s.link}>Create one!</Text>
-                        </Link>
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
@@ -276,20 +263,20 @@ const s = StyleSheet.create({
     hello: {
         color: "white",
         fontSize: 42,
-        fontWeight: "800",
+        fontFamily: "DMSans_800ExtraBold",
     },
     sub: {
         color: "white",
         opacity: 0.9,
         marginTop: 6,
         fontSize: 16,
+        fontFamily: "DMSans_400Regular",
     },
 
     // card area
     card: {
         backgroundColor: "#EDEDED",
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
+        borderRadius: 24,
         paddingHorizontal: 20,
         paddingTop: 20,
         paddingBottom: 16,
@@ -298,7 +285,7 @@ const s = StyleSheet.create({
     cardTitle: {
         fontSize: 35,
         color: "#0E5B37",
-        fontWeight: "600",
+        fontFamily: "DMSans_600SemiBold",
         marginBottom: 30,
         marginTop: 12,
     },
@@ -307,6 +294,7 @@ const s = StyleSheet.create({
         color: "#666",
         marginBottom: 20,
         lineHeight: 22,
+        fontFamily: "DMSans_400Regular",
     },
     input: {
         backgroundColor: "white",
@@ -315,10 +303,11 @@ const s = StyleSheet.create({
         paddingVertical: 14,
         marginBottom: 12,
         fontSize: 16,
+        fontFamily: "DMSans_400Regular",
     },
     otpInput: {
         fontSize: 24,
-        fontWeight: "600",
+        fontFamily: "DMSans_600SemiBold",
         letterSpacing: 8,
         textAlign: "center",
     },
@@ -339,7 +328,7 @@ const s = StyleSheet.create({
     primaryText: { 
         color: "white", 
         fontSize: 16, 
-        fontWeight: "700" 
+        fontFamily: "DMSans_700Bold",
     },
 
     secondaryBtn: {
@@ -355,7 +344,7 @@ const s = StyleSheet.create({
     secondaryText: { 
         color: "#0E5B37", 
         fontSize: 16, 
-        fontWeight: "700" 
+        fontFamily: "DMSans_700Bold",
     },
 
     resendContainer: {
@@ -366,6 +355,7 @@ const s = StyleSheet.create({
         fontSize: 16,
         color: "#666",
         marginBottom: 10,
+        fontFamily: "DMSans_400Regular",
     },
     resendButton: {
         paddingHorizontal: 20,
@@ -374,23 +364,13 @@ const s = StyleSheet.create({
     resendButtonText: {
         color: "#0E5B37",
         fontSize: 16,
-        fontWeight: "600",
+        fontFamily: "DMSans_600SemiBold",
         textDecorationLine: "underline",
     },
 
     link: { 
         color: "#0E5B37", 
+        fontFamily: "DMSans_400Regular",
         textDecorationLine: "underline" 
     },
-
-    footer: {
-        backgroundColor: "#EDEDED",
-        flexDirection: "row",
-        justifyContent: "center",
-        alignItems: "center",
-        paddingVertical: 16,
-        borderBottomLeftRadius: 24,
-        borderBottomRightRadius: 24,
-    },
-    footerText: { color: "#333" },
 });

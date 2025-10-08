@@ -49,17 +49,17 @@ const s = StyleSheet.create({
     court: {
         position: "absolute",
         left: -55,
-        top: -270,
+        top: -275,
         height: "180%",
         aspectRatio: 1,
         opacity: 1,
         pointerEvents: "none"
     },
     brand: {
-        right: -25,
+        right: -10,
         top: "-40%",
         fontSize: 50,
-        fontWeight: "300",
+        fontFamily: "DMSans_400Regular",
         letterSpacing: 4
     },
     good: { color: "#0A5A35" },

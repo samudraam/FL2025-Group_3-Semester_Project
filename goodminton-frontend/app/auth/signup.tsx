@@ -223,13 +223,14 @@ const s = StyleSheet.create({
     hello: {
         color: "white",
         fontSize: 42,
-        fontWeight: "800",
+        fontFamily: "DMSans_800ExtraBold",
     },
     sub: {
         color: "white",
         opacity: 0.9,
         marginTop: 6,
         fontSize: 16,
+        fontFamily: "DMSans_400Regular",
     },
 
     // card area
@@ -244,7 +245,7 @@ const s = StyleSheet.create({
     cardTitle: {
         fontSize: 35,
         color: "#0E5B37",
-        fontWeight: "600",
+        fontFamily: "DMSans_600SemiBold",
         marginBottom: 30,
         marginTop: 12,
     },
@@ -255,12 +256,13 @@ const s = StyleSheet.create({
         paddingVertical: 14,
         marginBottom: 12,
         fontSize: 16,
+        fontFamily: "DMSans_400Regular",
     },
     
     sectionLabel: {
         fontSize: 16,
         color: "#333",
-        fontWeight: "600",
+        fontFamily: "DMSans_600SemiBold",
         marginTop: 8,
         marginBottom: 10,
         marginLeft: 4,
@@ -290,7 +292,7 @@ const s = StyleSheet.create({
     levelButtonText: {
         color: "#666",
         fontSize: 14,
-        fontWeight: "600",
+        fontFamily: "DMSans_600SemiBold",
     },
     
     levelButtonTextSelected: {
@@ -305,7 +307,11 @@ const s = StyleSheet.create({
         marginTop: 4,
         marginBottom: 4,
     },
-    primaryText: { color: "white", fontSize: 16, fontWeight: "700" },
+    primaryText: { 
+        color: "white", 
+        fontSize: 16, 
+        fontFamily: "DMSans_700Bold",
+    },
 
 
 });
