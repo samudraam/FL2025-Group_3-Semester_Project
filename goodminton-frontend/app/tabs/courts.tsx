@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     },
     map: {
         flex: 1,
-        marginBottom: 100, // Space for bottom navigation
+        marginBottom: -110, 
     },
     overlay: {
         position: 'absolute',

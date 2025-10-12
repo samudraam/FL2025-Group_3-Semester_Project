@@ -22,7 +22,8 @@ export default function WeeklyCalendar() {
     const [selectedDay, setSelectedDay] = useState(6); // Start with Saturday (current day)
 
     /**
-     * Mock game data for the week
+     * Mock game data for the week 
+     * TODO: Replace with actual data!!!
      */
     const weeklyGames = {
         0: [

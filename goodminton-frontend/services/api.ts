@@ -111,4 +111,73 @@ export const authAPI = {
   },
 };
 
+// Friend Requests API functions
+export const friendRequestsAPI = {
+  /**
+   * Get pending friend requests
+   */
+  getPending: async () => {
+    const response = await api.get('/users/friend-requests');
+    return response.data;
+  },
+
+  /**
+   * Send a friend request
+   */
+  send: async (emailOrPhone: string, message?: string) => {
+    const response = await api.post('/users/friend-requests', {
+      emailOrPhone,
+      message,
+    });
+    return response.data;
+  },
+
+  /**
+   * Accept a friend request
+   */
+  accept: async (requestId: string) => {
+    const response = await api.post(`/users/friend-requests/${requestId}/accept`);
+    return response.data;
+  },
+
+  /**
+   * Reject a friend request
+   */
+  reject: async (requestId: string) => {
+    const response = await api.post(`/users/friend-requests/${requestId}/reject`);
+    return response.data;
+  },
+};
+
+// Games API functions
+export const gamesAPI = {
+  /**
+   * Submit game results to the backend
+   */
+  submitGame: async (gameData: {
+    opponentId: string;
+    scores: number[][];
+    winnerId: string;
+  }) => {
+    const response = await api.post('/games', gameData);
+    return response.data;
+  },
+
+  /**
+   * Get pending game confirmations
+   */
+  getPending: async () => {
+    const response = await api.get('/games/pending');
+    return response.data;
+  },
+
+  /**
+   * Confirm a game result
+   */
+  confirm: async (gameId: string) => {
+    const response = await api.post(`/games/${gameId}/confirm`);
+    return response.data;
+  },
+};
+
 export default api;

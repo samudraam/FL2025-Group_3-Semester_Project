@@ -1,5 +1,6 @@
 import { Stack } from "expo-router";
 import { AuthProvider } from "../services/authContext";
+import { SocketProvider } from "../services/socketContext";
 import { useFonts, DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold, DMSans_800ExtraBold } from '@expo-google-fonts/dm-sans';
 import { useEffect } from "react";
 import { Text } from "react-native";
@@ -33,11 +34,13 @@ export default function AuthLayout() {
 
     return (
         <AuthProvider>
-            <Stack screenOptions={{ animation: "fade" }}>
-                <Stack.Screen name="index" options={{ headerShown: false }} />
-                <Stack.Screen name="auth" options={{ headerShown: false }} />
-                <Stack.Screen name="tabs" options={{ headerShown: false }} />
-            </Stack>
+            <SocketProvider>
+                <Stack screenOptions={{ animation: "fade" }}>
+                    <Stack.Screen name="index" options={{ headerShown: false }} />
+                    <Stack.Screen name="auth" options={{ headerShown: false }} />
+                    <Stack.Screen name="tabs" options={{ headerShown: false }} />
+                </Stack>
+            </SocketProvider>
         </AuthProvider>
     );
 }

@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useAuth } from '../../services/authContext';
+import { useSocket } from '../../services/socketContext';
 import { router } from 'expo-router';
 import BottomNavPill from '../../components/BottomNavPill';
 import { HomeIcon, RankingsIcon, CommunityIcon, CourtsIcon } from '../../components/NavIcons';
 import ProfileHeader from '../../components/ProfileHeader';
 import WeeklyCalendar from '../../components/WeeklyCalendar';
 import GameRequests from '../../components/GameRequests';
+import FriendRequests from '../../components/FriendRequests';
+import NotificationToast from '../../components/NotificationToast';
 
 export default function Home() {
     const { user, logout } = useAuth();
+    const { notifications, removeNotification } = useSocket();
     const [activeTab, setActiveTab] = useState('home');
 
     /**
@@ -93,6 +97,7 @@ export default function Home() {
                 contentContainerStyle={styles.scrollContentContainer}
             >
                 <WeeklyCalendar />
+                <FriendRequests />
                 <GameRequests />
             </ScrollView>
             
@@ -102,6 +107,14 @@ export default function Home() {
                 activeTab={activeTab}
                 onTabPress={handleTabPress}
             />
+
+            {/* Notification Toasts - Display the most recent notification */}
+            {notifications.length > 0 && (
+                <NotificationToast
+                    notification={notifications[0]}
+                    onDismiss={removeNotification}
+                />
+            )}
         </View>
     );
 }

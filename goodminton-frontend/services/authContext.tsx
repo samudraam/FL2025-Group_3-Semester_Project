@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { authAPI, getStoredToken, setStoredToken, clearStoredToken } from './api';
+import { initializeSocket, disconnectSocket } from './socketService';
 
 interface User {
   id: string;
@@ -52,6 +53,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (response.success && response.token) {
       await setStoredToken(response.token);
       setUser(response.user);
+      // Initialize socket connection with the new token
+      initializeSocket(response.token);
     }
     return response;
   };
@@ -65,6 +68,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
+      // Disconnect socket before clearing token
+      disconnectSocket();
       setUser(null);
       await clearStoredToken();
     }
@@ -94,6 +99,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (token) {
         try {
           await refreshUser();
+          // Initialize socket if user is already authenticated
+          initializeSocket(token);
         } catch (error) {
           console.error('Auth check failed:', error);
           await clearStoredToken();
