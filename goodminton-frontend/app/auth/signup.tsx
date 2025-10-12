@@ -200,6 +200,14 @@ export default function Signup() {
                                 {isLoading ? "Creating Account..." : "Create Account"}
                             </Text>
                         </Pressable>
+
+                        {/* Login link */}
+                        <View style={s.loginContainer}>
+                            <Text style={s.loginText}>Already have an account?</Text>
+                            <Link href="/auth/login">
+                                <Text style={s.loginLink}>Sign In</Text>
+                            </Link>
+                        </View>
                     </View>
 
                 </ScrollView>
@@ -313,5 +321,23 @@ const s = StyleSheet.create({
         fontFamily: "DMSans_700Bold",
     },
 
-
+    loginContainer: {
+        alignItems: "center",
+        marginTop: 20,
+        paddingVertical: 16,
+        borderTopWidth: 2,
+        borderTopColor: "#E1E1E1",
+    },
+    loginText: {
+        fontSize: 14,
+        color: "#666",
+        fontFamily: "DMSans_400Regular",
+        marginBottom: 8,
+    },
+    loginLink: {
+        color: "#0E5B37",
+        fontSize: 16,
+        fontFamily: "DMSans_600SemiBold",
+        textDecorationLine: "underline",
+    },
 });

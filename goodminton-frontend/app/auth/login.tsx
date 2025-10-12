@@ -240,6 +240,14 @@ export default function Login() {
                                 <Text style={s.link}>Need Help?</Text>
                             </Link>
                         </View>
+
+                        {/* Sign up link */}
+                        <View style={s.signupContainer}>
+                            <Text style={s.signupText}>Don't have an account?</Text>
+                            <Link href="/auth/signup">
+                                <Text style={s.signupLink}>Sign Up</Text>
+                            </Link>
+                        </View>
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
@@ -372,5 +380,25 @@ const s = StyleSheet.create({
         color: "#0E5B37", 
         fontFamily: "DMSans_400Regular",
         textDecorationLine: "underline" 
+    },
+
+    signupContainer: {
+        alignItems: "center",
+        marginTop: 20,
+        paddingVertical: 16,
+        borderTopWidth: 2,
+        borderTopColor: "#E1E1E1",
+    },
+    signupText: {
+        fontSize: 14,
+        color: "#666",
+        fontFamily: "DMSans_400Regular",
+        marginBottom: 8,
+    },
+    signupLink: {
+        color: "#0E5B37",
+        fontSize: 16,
+        fontFamily: "DMSans_600SemiBold",
+        textDecorationLine: "underline",
     },
 });

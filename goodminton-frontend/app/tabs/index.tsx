@@ -1,17 +1,31 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useAuth } from '../../services/authContext';
 import { router } from 'expo-router';
 import BottomNavPill from '../../components/BottomNavPill';
 import { HomeIcon, RankingsIcon, CommunityIcon, CourtsIcon } from '../../components/NavIcons';
+import ProfileHeader from '../../components/ProfileHeader';
+import WeeklyCalendar from '../../components/WeeklyCalendar';
+import GameRequests from '../../components/GameRequests';
 
 export default function Home() {
     const { user, logout } = useAuth();
     const [activeTab, setActiveTab] = useState('home');
 
-    const handleLogout = async () => {
-        await logout();
-        router.replace('/auth/login');
+    /**
+     * Handle settings button press
+     */
+    const handleSettingsPress = () => {
+        console.log('Settings pressed');
+        // TODO: Navigate to settings screen
+    };
+
+    /**
+     * Handle notification bell press
+     */
+    const handleNotificationPress = () => {
+        console.log('Notifications pressed');
+        // TODO: Navigate to notifications screen
     };
 
     /**
@@ -65,14 +79,22 @@ export default function Home() {
 
     return (
         <View style={styles.container}>
-            <View style={styles.content}>
-                <Text style={styles.title}>Welcome to Goodminton!</Text>
-                <Text style={styles.subtitle}>Hello, {user?.profile?.displayName || user?.email}!</Text>
-                
-                <Pressable style={styles.logoutButton} onPress={handleLogout}>
-                    <Text style={styles.logoutText}>Logout</Text>
-                </Pressable>
-            </View>
+            {/* Fixed Profile Header */}
+            <ProfileHeader 
+                username={user?.profile?.displayName || user?.email || "JSONderulo"}
+                onSettingsPress={handleSettingsPress}
+                onNotificationPress={handleNotificationPress}
+            />
+            
+            {/* Scrollable Content */}
+            <ScrollView 
+                style={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContentContainer}
+            >
+                <WeeklyCalendar />
+                <GameRequests />
+            </ScrollView>
             
             {/* Custom Bottom Navigation Pill */}
             <BottomNavPill 
@@ -89,33 +111,10 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#f5f5f5',
     },
-    content: {
+    scrollContent: {
         flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
-        paddingBottom: 100, 
     },
-    title: {
-        fontSize: 24,
-        fontFamily: 'DMSans_700Bold',
-        color: '#0E5B37',
-        marginBottom: 10,
-    },
-    subtitle: {
-        fontSize: 16,
-        fontFamily: 'DMSans_400Regular',
-        color: '#666',
-        marginBottom: 30,
-    },
-    logoutButton: {
-        backgroundColor: '#0E5B37',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 8,
-    },
-    logoutText: {
-        color: 'white',
-        fontFamily: 'DMSans_600SemiBold',
+    scrollContentContainer: {
+        paddingBottom: 120, // Space for bottom navigation
     },
 });
