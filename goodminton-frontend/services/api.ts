@@ -180,4 +180,15 @@ export const gamesAPI = {
   },
 };
 
+// Users API functions
+export const usersAPI = {
+  /**
+   * Get leaderboard data
+   */
+  getLeaderboard: async () => {
+    const response = await api.get('/users/leaderboard');
+    return response.data;
+  },
+};
+
 export default api;

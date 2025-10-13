@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Image, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Image, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { friendRequestsAPI } from '../services/api';
 import { useSocket } from '../services/socketContext';
 
@@ -27,6 +27,7 @@ interface FriendRequest {
 export default function FriendRequests() {
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   const { notifications } = useSocket();
 
@@ -52,19 +53,37 @@ export default function FriendRequests() {
   /**
    * Fetch friend requests from API
    */
-  const fetchFriendRequests = async () => {
+  const fetchFriendRequests = async (isRefresh = false) => {
     try {
-      setIsLoading(true);
+      if (isRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
+      
       const response = await friendRequestsAPI.getPending();
       if (response.success) {
         setFriendRequests(response.pendingRequests || []);
+      } else {
+        // If response is not successful, set empty array to show empty state
+        setFriendRequests([]);
       }
     } catch (error: any) {
       console.error('Failed to fetch friend requests:', error);
+      // On error, set empty array to show empty state
+      setFriendRequests([]);
       Alert.alert('Error', error.response?.data?.error || 'Failed to load friend requests');
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
+  };
+
+  /**
+   * Handle manual refresh triggered by pull-to-refresh gesture
+   */
+  const handleRefresh = () => {
+    fetchFriendRequests(true);
   };
 
   /**
@@ -186,6 +205,14 @@ export default function FriendRequests() {
       <ScrollView 
         style={styles.requestsList}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor="#0E5B37"
+            colors={['#0E5B37']}
+          />
+        }
       >
         {friendRequests.map((request) => {
           const isProcessing = processingIds.has(request._id);
@@ -227,7 +254,7 @@ export default function FriendRequests() {
         })}
         
         {/* Empty state if no friend requests */}
-        {friendRequests.length === 0 && (
+        {(!friendRequests || friendRequests.length === 0) && (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateText}>No pending friend requests</Text>
           </View>
