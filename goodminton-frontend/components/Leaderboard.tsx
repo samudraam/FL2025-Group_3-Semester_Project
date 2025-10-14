@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Alert, Pressable } from 'react-native';
+import { router } from 'expo-router';
 import { usersAPI } from '../services/api';
+import { fetchWithRetry } from '../services/apiHelpers';
+import { apiCache } from '../services/apiCache';
 
 /**
  * Leaderboard entry interface
@@ -26,7 +29,7 @@ export default function Leaderboard() {
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     /**
-     * Fetch leaderboard data from API
+     * Fetch leaderboard data from API with retry logic
      */
     const fetchLeaderboard = async (isRefresh = false) => {
         try {
@@ -36,7 +39,16 @@ export default function Leaderboard() {
                 setIsLoading(true);
             }
 
-            const response = await usersAPI.getLeaderboard();
+            const response = await fetchWithRetry(
+                () => usersAPI.getLeaderboard(),
+                {
+                    cacheKey: 'leaderboard',
+                    cacheTTL: 60000, // Cache for 1 minute
+                    maxRetries: 3,
+                    skipCache: isRefresh
+                }
+            );
+            
             if (response.success) {
                 setLeaderboard(response.leaderboard || []);
             } else {
@@ -46,7 +58,13 @@ export default function Leaderboard() {
         } catch (error: any) {
             console.error('Failed to fetch leaderboard:', error);
             setLeaderboard([]);
-            Alert.alert('Error', error.response?.data?.error || 'Failed to load leaderboard');
+            
+            const status = error?.response?.status;
+            if (status === 429) {
+                Alert.alert('Too Many Requests', 'Please wait a moment before refreshing.');
+            } else if (!isRefresh) {
+                Alert.alert('Error', error.response?.data?.error || 'Failed to load leaderboard');
+            }
         } finally {
             setIsLoading(false);
             setIsRefreshing(false);
@@ -55,16 +73,35 @@ export default function Leaderboard() {
 
     /**
      * Handle manual refresh triggered by pull-to-refresh gesture
+     * Clears the cache to ensure fresh data is fetched from the API
      */
     const handleRefresh = () => {
+        apiCache.invalidate('leaderboard');
         fetchLeaderboard(true);
     };
 
     /**
-     * Fetch leaderboard on component mount
+     * Handle row press to navigate to user profile
+     */
+    const handleRowPress = (entry: LeaderboardEntry) => {
+        router.push({
+            pathname: '/tabs/profile-viewer',
+            params: { 
+                userId: entry._id,
+                emailOrPhone: entry.email 
+            }
+        });
+    };
+
+    /**
+     * Fetch leaderboard on component mount with delay to stagger API calls
      */
     useEffect(() => {
-        fetchLeaderboard();
+        const timer = setTimeout(() => {
+            fetchLeaderboard();
+        }, 2000); // 2 second delay to prevent rate limiting
+        
+        return () => clearTimeout(timer);
     }, []);
 
     /**
@@ -122,7 +159,11 @@ export default function Leaderboard() {
                     
                     return (
                         <View key={entry._id}>
-                            <View style={styles.tableRow}>
+                            <Pressable 
+                                style={styles.tableRow}
+                                onPress={() => handleRowPress(entry)}
+                                android_ripple={{ color: '#E8F5E8' }}
+                            >
                                 {/* Rank Column */}
                                 <View style={styles.rankColumn}>
                                     <Text style={[styles.rankText, isTopThree && styles.topThreeRank]}>
@@ -147,7 +188,7 @@ export default function Leaderboard() {
                                         {entry.profile.points}
                                     </Text>
                                 </View>
-                            </View>
+                            </Pressable>
                             
                             {/* Row Separator (except for last row) */}
                             {index < leaderboard.length - 1 && (
@@ -236,16 +277,17 @@ const styles = StyleSheet.create({
         minHeight: 60,
     },
     rankColumn: {
-        width: 60,
+        width: 30,
         alignItems: 'center',
     },
     rankText: {
-        fontSize: 16,
-        fontFamily: 'DMSans_700Bold',
+        fontSize: 15,
+        fontFamily: 'DMSans_400Regular',
         color: '#333',
     },
     topThreeRank: {
         color: '#0E5B37',
+        fontFamily: 'DMSans_700Bold',
         fontSize: 18,
     },
     userColumn: {

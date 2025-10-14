@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Image, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { gamesAPI } from '../services/api';
 import { useSocket } from '../services/socketContext';
+import { fetchWithRetry } from '../services/apiHelpers';
+import { apiCache } from '../services/apiCache';
 
 /**
  * Individual game score interface
@@ -39,68 +41,91 @@ interface GameConfirmation {
  * GameConfirmation component displays a scrollable list of completed matches awaiting confirmation
  * Each item shows match results with individual game scores and confirm/dispute buttons
  */
-export default function GameConfirmation() {
+interface GameConfirmationProps {
+  refreshTrigger?: number;
+}
+
+export default function GameConfirmation({ refreshTrigger }: GameConfirmationProps) {
     const [gameConfirmations, setGameConfirmations] = useState<GameConfirmation[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
+    const [lastNotificationCount, setLastNotificationCount] = useState(0);
     const { notifications } = useSocket();
 
     /**
-     * Fetch pending game confirmations on mount
+     * Fetch pending game confirmations on mount with delay to stagger API calls
      */
     useEffect(() => {
-        fetchGameConfirmations();
+        const timer = setTimeout(() => {
+            fetchGameConfirmations();
+        }, 1500); // 1.5 second delay to prevent rate limiting
+        
+        return () => clearTimeout(timer);
     }, []);
 
     /**
      * Refresh list when new game confirmation notification arrives
-     * This effect watches for game_confirmation notifications and triggers a refresh
-     * It extracts the game ID from the notification data if available
+     * Only triggers when a new game_confirmation notification is added
+     * Uses a counter to track processed notifications and prevent duplicate fetches
+     * Clears cache to ensure fresh data is fetched
      */
     useEffect(() => {
         const gameConfirmationNotifications = notifications.filter(
             (n) => n.type === 'game_confirmation'
         );
         
-        if (gameConfirmationNotifications.length > 0) {
-            // console.log('Game confirmation notification received:', gameConfirmationNotifications);
-            // Extract game data from the most recent notification
-            // const latestNotification = gameConfirmationNotifications[0];
-            // console.log('Notification data:', latestNotification.data);
-            
-            // Fetch the updated list of pending games
+        // Only fetch if we have new notifications (count increased)
+        if (gameConfirmationNotifications.length > lastNotificationCount) {
+            setLastNotificationCount(gameConfirmationNotifications.length);
+            apiCache.invalidate('game-confirmations');
             fetchGameConfirmations();
         }
     }, [notifications]);
 
     /**
-     * Fetch game confirmations from API
+     * Respond to external refresh trigger without remounting
+     */
+    useEffect(() => {
+        if (refreshTrigger && refreshTrigger > 0) {
+            console.log('🔄 GameRequests external refresh trigger received:', refreshTrigger);
+            fetchGameConfirmations(true);
+        }
+    }, [refreshTrigger]);
+
+    /**
+     * Fetch game confirmations from API with retry logic
      * This function retrieves all pending game confirmations that need the user's approval
      */
     const fetchGameConfirmations = async (isRefresh = false) => {
         try {
-            // console.log('Fetching game confirmations...');
             if (isRefresh) {
                 setIsRefreshing(true);
             } else {
                 setIsLoading(true);
             }
             
-            const response = await gamesAPI.getPending();
-            // console.log('Game confirmations response:', response);
+            const response = await fetchWithRetry(
+                () => gamesAPI.getPending(),
+                {
+                    cacheKey: 'game-confirmations',
+                    cacheTTL: 30000, // Cache for 30 seconds
+                    maxRetries: 3,
+                    skipCache: isRefresh
+                }
+            );
             
             if (response.success) {
                 const games = response.pendingGames || [];
-                // console.log(`Found ${games.length} pending game confirmations`);
                 setGameConfirmations(games);
-            } else {
-                // console.log('Response was not successful:', response);
             }
         } catch (error: any) {
             console.error('Failed to fetch game confirmations:', error);
-            // console.error('Error details:', error.response?.data);
-            if (error.response?.status !== 404) {
+            const status = error?.response?.status;
+            
+            if (status === 429) {
+                Alert.alert('Too Many Requests', 'Please wait a moment before refreshing.');
+            } else if (status !== 404 && !isRefresh) {
                 Alert.alert('Error', error.response?.data?.error || 'Failed to load game confirmations');
             }
         } finally {
@@ -111,8 +136,10 @@ export default function GameConfirmation() {
 
     /**
      * Handle manual refresh triggered by pull-to-refresh gesture
+     * Clears the cache to ensure fresh data is fetched from the API
      */
     const handleRefresh = () => {
+        apiCache.invalidate('game-confirmations');
         fetchGameConfirmations(true);
     };
 

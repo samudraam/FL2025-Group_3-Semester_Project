@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { useAuth } from '../../services/authContext';
 import { useSocket } from '../../services/socketContext';
 import { router } from 'expo-router';
@@ -10,11 +10,14 @@ import WeeklyCalendar from '../../components/WeeklyCalendar';
 import GameRequests from '../../components/GameRequests';
 import FriendRequests from '../../components/FriendRequests';
 import NotificationToast from '../../components/NotificationToast';
+import { apiCache } from '../../services/apiCache';
 
 export default function Home() {
     const { user, logout } = useAuth();
     const { notifications, removeNotification } = useSocket();
     const [activeTab, setActiveTab] = useState('home');
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     /**
      * Handle settings button press
@@ -30,6 +33,31 @@ export default function Home() {
     const handleNotificationPress = () => {
         console.log('Notifications pressed');
         // TODO: Navigate to notifications screen
+    };
+
+    /**
+     * Handle pull-to-refresh gesture
+     * Clears caches and triggers component refreshes without remounting
+     */
+    const handleRefresh = async () => {
+        console.log('🔄 Home pull-to-refresh triggered - clearing caches and triggering refresh');
+        setIsRefreshing(true);
+        
+        try {
+            // Clear all relevant caches to force fresh data
+            apiCache.invalidate('friend-requests');
+            apiCache.invalidate('game-confirmations');
+            apiCache.invalidate('weekly-games-calendar');
+            apiCache.invalidate('leaderboard');
+            
+            // Trigger refresh without remounting components
+            setRefreshTrigger(prev => prev + 1);
+            
+            // Add a small delay to show the refresh animation
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        } finally {
+            setIsRefreshing(false);
+        }
     };
 
     /**
@@ -95,10 +123,24 @@ export default function Home() {
                 style={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContentContainer}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={isRefreshing}
+                        onRefresh={handleRefresh}
+                        tintColor="#0E5B37"
+                        colors={['#0E5B37']}
+                    />
+                }
             >
-                <WeeklyCalendar />
-                <FriendRequests />
-                <GameRequests />
+                <View style={styles.componentContainer}>
+                    <WeeklyCalendar refreshTrigger={refreshTrigger} />
+                </View>
+                <View style={styles.componentContainer}>
+                    <FriendRequests refreshTrigger={refreshTrigger} />
+                </View>
+                <View style={styles.componentContainer}>
+                    <GameRequests refreshTrigger={refreshTrigger} />
+                </View>
             </ScrollView>
             
             {/* Custom Bottom Navigation Pill */}
@@ -129,5 +171,8 @@ const styles = StyleSheet.create({
     },
     scrollContentContainer: {
         paddingBottom: 120, // Space for bottom navigation
+    },
+    componentContainer: {
+        marginBottom: 10, // Small gap between components
     },
 });

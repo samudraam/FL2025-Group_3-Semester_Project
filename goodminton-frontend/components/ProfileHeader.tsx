@@ -1,6 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image, Alert } from 'react-native';
 import { SettingsIcon, BellIcon } from './NavIcons';
+import { useAuth } from '../services/authContext';
+import { router } from 'expo-router';
 
 /**
  * ProfileHeader component displays user profile information at the top of the screen
@@ -11,14 +13,18 @@ interface ProfileHeaderProps {
     profileImageUri?: string;
     onSettingsPress?: () => void;
     onNotificationPress?: () => void;
+    onSignOutPress?: () => void;
 }
 
 export default function ProfileHeader({ 
     username = "JSONderulo", 
     profileImageUri,
     onSettingsPress,
-    onNotificationPress 
+    onNotificationPress,
+    onSignOutPress
 }: ProfileHeaderProps) {
+    const { logout } = useAuth();
+
     /**
      * Get current date in the format "Wed, Oct 8 2025"
      */
@@ -31,6 +37,35 @@ export default function ProfileHeader({
             year: 'numeric' 
         };
         return now.toLocaleDateString('en-US', options);
+    };
+
+    /**
+     * Handles sign out with confirmation dialog
+     */
+    const handleSignOut = () => {
+        Alert.alert(
+            'Sign Out',
+            'Are you sure you want to sign out?',
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel',
+                },
+                {
+                    text: 'Sign Out',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await logout();
+                            router.replace('/auth/login');
+                        } catch (error) {
+                            console.error('Sign out error:', error);
+                            Alert.alert('Error', 'Failed to sign out. Please try again.');
+                        }
+                    },
+                },
+            ]
+        );
     };
 
     return (
@@ -72,6 +107,14 @@ export default function ProfileHeader({
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                     <BellIcon size={25} color="#F5A623" />
+                </Pressable>
+
+                <Pressable 
+                    style={styles.signOutButton} 
+                    onPress={onSignOutPress || handleSignOut}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                    <Text style={styles.signOutText}>Sign Out</Text>
                 </Pressable>
             </View>
         </View>
@@ -140,5 +183,18 @@ const styles = StyleSheet.create({
         padding: 6,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    signOutButton: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        backgroundColor: '#e74c3c',
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    signOutText: {
+        fontSize: 12,
+        fontFamily: 'DMSans_600SemiBold',
+        color: 'white',
     },
 });

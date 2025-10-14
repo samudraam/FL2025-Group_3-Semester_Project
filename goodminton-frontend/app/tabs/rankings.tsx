@@ -76,7 +76,7 @@ export default function Rankings() {
             >
                 <View style={styles.headerSection}>
                     <Text style={styles.title}>Player Rankings</Text>
-                    <Text style={styles.subtitle}>Your Freindliest Competitors</Text>
+                    <Text style={styles.subtitle}>See Your Friends Progress</Text>
                 </View>
                 
                 <Leaderboard />
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
     },
     headerSection: {
         paddingHorizontal: 20,
-        backgroundColor: '#E0E0E0',
+        backgroundColor: '#A8DADB',
         paddingVertical: 20,
         alignItems: 'center',
     },

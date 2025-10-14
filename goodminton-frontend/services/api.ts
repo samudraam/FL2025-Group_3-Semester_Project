@@ -3,6 +3,31 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001/api';
 
+/**
+ * Global request queue to prevent rate limiting across all API calls
+ */
+class GlobalRequestQueue {
+  private activeRequests = new Map<string, Promise<any>>();
+  
+  async queueRequest<T>(url: string, requestFn: () => Promise<T>): Promise<T> {
+    const key = url.split('?')[0]; // Remove query params for deduplication
+    
+    if (this.activeRequests.has(key)) {
+      console.log(`Global queue: Request for ${key} already in progress, waiting...`);
+      return this.activeRequests.get(key)!;
+    }
+    
+    const requestPromise = requestFn().finally(() => {
+      this.activeRequests.delete(key);
+    });
+    
+    this.activeRequests.set(key, requestPromise);
+    return requestPromise;
+  }
+}
+
+const globalQueue = new GlobalRequestQueue();
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -178,6 +203,14 @@ export const gamesAPI = {
     const response = await api.post(`/games/${gameId}/confirm`);
     return response.data;
   },
+
+  /**
+   * Get weekly games history
+   */
+  getWeeklyGames: async () => {
+    const response = await api.get('/games/weekly');
+    return response.data;
+  },
 };
 
 // Users API functions
@@ -187,6 +220,41 @@ export const usersAPI = {
    */
   getLeaderboard: async () => {
     const response = await api.get('/users/leaderboard');
+    return response.data;
+  },
+
+  /**
+   * Get user profile by ID
+   */
+  getUserProfile: async (userId: string) => {
+    const response = await api.get(`/users/${userId}/profile`);
+    return response.data;
+  },
+
+  /**
+   * Send friend request to user by email or phone
+   */
+  sendFriendRequest: async (emailOrPhone: string, message?: string) => {
+    const response = await api.post('/users/friend-requests', {
+      emailOrPhone,
+      message,
+    });
+    return response.data;
+  },
+
+  /**
+   * Check friendship status with a user
+   */
+  checkFriendshipStatus: async (userId: string) => {
+    const response = await api.get(`/users/${userId}/friendship-status`);
+    return response.data;
+  },
+
+  /**
+   * Search users by query (email or phone)
+   */
+  search: async (q: string) => {
+    const response = await api.get('/users/search', { params: { q } });
     return response.data;
   },
 };

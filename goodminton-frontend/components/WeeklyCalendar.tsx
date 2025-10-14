@@ -1,114 +1,157 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import GradientComponent from './GradientComponent';
+import { gamesAPI } from '../services/api';
+import { fetchWithRetry } from '../services/apiHelpers';
 
 /**
- * Game interface for type safety
+ * Game interface matching API response
  */
 interface Game {
     id: string;
+    date: string;
     time: string;
-    duration: string;
     players: string[];
     scores: number[];
     result: 'win' | 'loss';
 }
 
 /**
+ * API response interface
+ */
+interface WeeklyGamesResponse {
+    success: boolean;
+    games: Game[];
+}
+
+/**
  * WeeklyCalendar component displays a week view with game data and match details
  * Shows gradient banner, day selector, and game details for selected day
  */
-export default function WeeklyCalendar() {
-    const [selectedDay, setSelectedDay] = useState(6); // Start with Saturday (current day)
+interface WeeklyCalendarProps {
+  refreshTrigger?: number;
+}
+
+export default function WeeklyCalendar({ refreshTrigger }: WeeklyCalendarProps) {
+    const [selectedDay, setSelectedDay] = useState(new Date().getDay());
+    const [weeklyGames, setWeeklyGames] = useState<{ [key: number]: Game[] }>({
+        0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: []
+    });
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     /**
-     * Mock game data for the week 
-     * TODO: Replace with actual data!!!
+     * Formats ISO date string to readable time format
+     * @param isoString - ISO 8601 date string from API
+     * @returns Formatted time string like "12:30PM"
      */
-    const weeklyGames = {
-        0: [
-            {
-                id: '1',
-                time: '12:30PM - 01:45PM',
-                duration: '1h 15m',
-                players: ['JSONderulo', 'ryan-C-RUST', 'tayl0r_Swift', 'amber-markdown'],
-                scores: [2, 1],
-                result: 'win' as const,
-            },
-            {
-                id: '2', 
-                time: '01:50PM - 02:55PM',
-                duration: '1h 5m',
-                players: ['JSONderulo', 'ryan-C-RUST', 'tayl0r_Swift', 'amber-markdown'],
-                scores: [2, 1],
-                result: 'win' as const,
-            },
-            {
-                id: '3',
-                time: '03:00PM - 04:15PM', 
-                duration: '1h 15m',
-                players: ['JSONderulo', 'ryan-C-RUST', 'tayl0r_Swift', 'amber-markdown'],
-                scores: [0, 2],
-                result: 'loss' as const,
-            }
-        ], // Sunday
-        1: [], // Monday  
-        2: [], // Tuesday
-        3: [
-            {
-                id: '1',
-                time: '12:30PM - 01:45PM',
-                duration: '1h 15m',
-                players: ['JSONderulo', 'ryan-C-RUST', 'tayl0r_Swift', 'amber-markdown'],
-                scores: [2, 1],
-                result: 'win' as const,
-            },
-            {
-                id: '2', 
-                time: '01:50PM - 02:55PM',
-                duration: '1h 5m',
-                players: ['JSONderulo', 'ryan-C-RUST', 'tayl0r_Swift', 'amber-markdown'],
-                scores: [2, 1],
-                result: 'win' as const,
-            },
-            {
-                id: '3',
-                time: '03:00PM - 04:15PM', 
-                duration: '1h 15m',
-                players: ['JSONderulo', 'ryan-C-RUST', 'tayl0r_Swift', 'amber-markdown'],
-                scores: [0, 2],
-                result: 'loss' as const,
-            }
-        ], // Wednesday
-        4: [], // Thursday
-        5: [], // Friday
-        6: [ // Saturday (current day)
-            {
-                id: '1',
-                time: '12:30PM - 01:45PM',
-                duration: '1h 15m',
-                players: ['JSONderulo', 'ryan-C-RUST', 'tayl0r_Swift', 'amber-markdown'],
-                scores: [2, 1],
-                result: 'win' as const,
-            },
-            {
-                id: '2', 
-                time: '01:50PM - 02:55PM',
-                duration: '1h 5m',
-                players: ['JSONderulo', 'ryan-C-RUST', 'tayl0r_Swift', 'amber-markdown'],
-                scores: [2, 1],
-                result: 'win' as const,
-            },
-            {
-                id: '3',
-                time: '03:00PM - 04:15PM', 
-                duration: '1h 15m',
-                players: ['JSONderulo', 'ryan-C-RUST', 'tayl0r_Swift', 'amber-markdown'],
-                scores: [0, 2],
-                result: 'loss' as const,
-            }
-        ]
+    const formatTime = (isoString: string): string => {
+        const date = new Date(isoString);
+        const hours = date.getHours();
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        const displayHours = hours % 12 || 12;
+        return `${displayHours}:${minutes}${ampm}`;
     };
+
+    /**
+     * Groups games by day of week
+     * @param games - Array of games from API
+     * @returns Object with day indices (0-6) as keys and game arrays as values
+     */
+    const groupGamesByDay = (games: Game[]): { [key: number]: Game[] } => {
+        const grouped: { [key: number]: Game[] } = {
+            0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: []
+        };
+
+        games.forEach(game => {
+            const gameDate = new Date(game.time);
+            const dayOfWeek = gameDate.getDay(); // 0 = Sunday, 6 = Saturday
+            grouped[dayOfWeek].push(game);
+        });
+
+        return grouped;
+    };
+
+    /**
+     * Fetches weekly games data from API on component mount
+     * Transforms and groups data by day of week
+     * Uses retry logic with exponential backoff and caching
+     */
+    useEffect(() => {
+        const fetchWeeklyGames = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                
+                const response: WeeklyGamesResponse = await fetchWithRetry(
+                    () => gamesAPI.getWeeklyGames(),
+                    { 
+                        cacheKey: 'weekly-games-calendar',
+                        cacheTTL: 60000, // Cache for 1 minute
+                        maxRetries: 3,
+                        retryDelay: 1000
+                    }
+                );
+                
+                if (response.success && response.games) {
+                    const groupedGames = groupGamesByDay(response.games);
+                    setWeeklyGames(groupedGames);
+                }
+            } catch (err: any) {
+                console.error('Failed to fetch weekly games:', err);
+                const status = err?.response?.status;
+                if (status === 429) {
+                    setError('Too many requests. Please wait a moment and try again.');
+                } else {
+                    setError('Failed to load games. Please try again later.');
+                }
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchWeeklyGames();
+    }, []);
+
+    /**
+     * Respond to external refresh trigger without remounting
+     */
+    useEffect(() => {
+        if (refreshTrigger && refreshTrigger > 0) {
+            console.log('🔄 WeeklyCalendar external refresh trigger received:', refreshTrigger);
+            // Trigger a fresh fetch
+            const fetchWeeklyGames = async () => {
+                try {
+                    setLoading(true);
+                    setError(null);
+                    
+                    const response: WeeklyGamesResponse = await fetchWithRetry(
+                        () => gamesAPI.getWeeklyGames(),
+                        { 
+                            cacheKey: 'weekly-games-calendar',
+                            cacheTTL: 60000,
+                            maxRetries: 3,
+                            retryDelay: 1000,
+                            skipCache: true // Force fresh data
+                        }
+                    );
+                    
+                    if (response.success && response.games) {
+                        const groupedGames = groupGamesByDay(response.games);
+                        setWeeklyGames(groupedGames);
+                    }
+                } catch (error: any) {
+                    console.error('Failed to fetch weekly games:', error);
+                    setError(error.message || 'Failed to load games');
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            fetchWeeklyGames();
+        }
+    }, [refreshTrigger]);
 
     const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
     const selectedGames = weeklyGames[selectedDay as keyof typeof weeklyGames] || [];
@@ -117,26 +160,38 @@ export default function WeeklyCalendar() {
 
     /**
      * Check if a day is today
+     * @param dayIndex - Day of week (0 = Sunday, 6 = Saturday)
      */
-    const isToday = (dayIndex: number) => {
-    const today = new Date().getDay();
-    return dayIndex === today;
+    const isToday = (dayIndex: number): boolean => {
+        const today = new Date().getDay();
+        return dayIndex === today;
     };
 
     /**
      * Get day color based on whether it has games and if it's today
+     * @param dayIndex - Day of week (0 = Sunday, 6 = Saturday)
+     * @returns Color string for the day button background
      */
-    const getDayColor = (dayIndex: number) => {
-        const hasGames = weeklyGames[dayIndex as keyof typeof weeklyGames]?.length > 0;
-        const today = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const getDayColor = (dayIndex: number): string => {
+        const hasGames = weeklyGames[dayIndex]?.length > 0;
+        const today = new Date().getDay();
         
         if (today === dayIndex) {
-            return '#4CAF50'; // Today gets green background
+            return '#4CAF50';
         } else if (hasGames) {
-            return '#FFC4EB'; // Days with games pink
+            return '#FFC4EB';
         } else {
-            return '#EAEAEA'; // No games gray
+            return '#EAEAEA';
         }
+    };
+
+    /**
+     * Handle day selection with debugging
+     * @param dayIndex - Day of week (0 = Sunday, 6 = Saturday)
+     */
+    const handleDayPress = (dayIndex: number) => {
+        console.log(`Day ${dayIndex} pressed, current selected: ${selectedDay}`);
+        setSelectedDay(dayIndex);
     };
 
     return (
@@ -151,7 +206,23 @@ export default function WeeklyCalendar() {
                 </GradientComponent>
             </View>
 
+            {/* Loading State */}
+            {loading && (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#0E5B37" />
+                    <Text style={styles.loadingText}>Loading your games...</Text>
+                </View>
+            )}
+
+            {/* Error State */}
+            {error && !loading && (
+                <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>{error}</Text>
+                </View>
+            )}
+
             {/* Week Header */}
+            {!loading && !error && (
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Games This Week</Text>
                 
@@ -159,13 +230,13 @@ export default function WeeklyCalendar() {
                 <View style={styles.daySelector}>
                     {dayLabels.map((day, index) => (
                         <Pressable
-                            key={index}
+                            key={`day-${index}-${selectedDay}`}
                             style={[
                                 styles.dayButton,
                                 { backgroundColor: getDayColor(index) },
                                 selectedDay === index && styles.selectedBorder
                             ]}
-                            onPress={() => setSelectedDay(index)}
+                            onPress={() => handleDayPress(index)}
                         >
                             <Text style={[
                                 styles.dayLabel,
@@ -192,14 +263,10 @@ export default function WeeklyCalendar() {
                         <ScrollView style={styles.gameList} showsVerticalScrollIndicator={false}>
                             {selectedGames.map((game) => (
                                 <View key={game.id} style={styles.gameItem}>
-                                    <Text style={styles.gameTime}>{game.time}</Text>
+                                    <Text style={styles.gameTime}>{formatTime(game.time)}</Text>
                                     <View style={styles.gamePlayers}>
                                         <Text style={styles.playerNames}>
-                                            {game.players.slice(0, 2).join(' | ')}
-                                        </Text>
-                                        <Text style={styles.vsText}>vs</Text>
-                                        <Text style={styles.playerNames}>
-                                            {game.players.slice(2, 4).join(' | ')}
+                                            {game.players.join(' | ')}
                                         </Text>
                                     </View>
                                     <View style={styles.scoreContainer}>
@@ -230,6 +297,7 @@ export default function WeeklyCalendar() {
                     </View>
                 )}
             </View>
+            )}
         </View>
     );
 }
@@ -376,6 +444,30 @@ const styles = StyleSheet.create({
     },
     selectedBorder: {
         borderWidth: 3,
-        borderColor: '#6CCCCE', // teal border selector
+        borderColor: '#6CCCCE',
+    },
+    loadingContainer: {
+        padding: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    loadingText: {
+        marginTop: 12,
+        fontSize: 14,
+        fontFamily: 'DMSans_400Regular',
+        color: '#666',
+    },
+    errorContainer: {
+        padding: 20,
+        marginHorizontal: 20,
+        backgroundColor: '#FFE5E5',
+        borderRadius: 12,
+        marginTop: 20,
+    },
+    errorText: {
+        fontSize: 14,
+        fontFamily: 'DMSans_400Regular',
+        color: '#D32F2F',
+        textAlign: 'center',
     },
 });

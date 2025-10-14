@@ -1,13 +1,22 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useAuth } from '../../services/authContext';
 import BottomNavPill from '../../components/BottomNavPill';
 import { HomeIcon, RankingsIcon, CommunityIcon, CourtsIcon } from '../../components/NavIcons';
 import { router } from 'expo-router';
+import ProfileHeader from '../../components/ProfileHeader';
+import AddFriend from '../../components/AddFriend';
+import FriendsList from '../../components/FriendsList';
 
 
 export default function Community() {
+    const { user } = useAuth();
     const [activeTab, setActiveTab] = useState('community');
 
+    /**
+     * Handles navigation between tabs in the bottom navigation pill
+     * Updates the active tab state and navigates to the appropriate route
+     */
     const handleTabPress = (tabId: string) => {
         setActiveTab(tabId);
         
@@ -27,6 +36,22 @@ export default function Community() {
         }
     };
 
+    /**
+     * Handles settings icon press
+     * Future implementation: Navigate to settings screen
+     */
+    const handleSettingsPress = () => {
+        console.log('Settings pressed');
+    };
+
+    /**
+     * Handles notification icon press
+     * Future implementation: Navigate to notifications screen
+     */
+    const handleNotificationPress = () => {
+        console.log('Notifications pressed');
+    };
+
     const navItems = [
         { id: 'home', label: 'home', icon: <HomeIcon /> },
         { id: 'rankings', label: 'rankings', icon: <RankingsIcon /> },
@@ -36,9 +61,18 @@ export default function Community() {
 
     return (
         <View style={styles.container}>
+            <ProfileHeader 
+                username={user?.profile?.displayName || user?.email || "JSONderulo"}
+                onSettingsPress={handleSettingsPress}
+                onNotificationPress={handleNotificationPress}
+            />
+            
             <View style={styles.content}>
-                <Text style={styles.title}>Community</Text>
-                <Text style={styles.subtitle}>Coming soon - Connect with other players</Text>
+                <View style={styles.titleContainer}>
+                    <Text style={styles.title}>Community</Text>
+                </View>
+                <AddFriend />
+                <FriendsList />
             </View>
             
             <BottomNavPill 
@@ -57,16 +91,20 @@ const styles = StyleSheet.create({
     },
     content: {
         flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
+        paddingTop: 0,
         paddingBottom: 100,
+    },
+    titleContainer: {
+        backgroundColor: '#A8DADB',
+        padding: 20,
+        width: '100%',
+        alignItems: 'center',
+        marginBottom: 10,
     },
     title: {
         fontSize: 24,
         fontFamily: 'DMSans_700Bold',
         color: '#0E5B37',
-        marginBottom: 10,
     },
     subtitle: {
         fontSize: 16,
