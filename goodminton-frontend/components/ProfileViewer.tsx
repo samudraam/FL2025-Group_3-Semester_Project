@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { 
-    View, 
-    Text, 
-    StyleSheet, 
-    ScrollView, 
-    ActivityIndicator, 
-    Alert, 
-    TouchableOpacity, 
+import {
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    ActivityIndicator,
+    Alert,
+    TouchableOpacity,
     Pressable,
     RefreshControl
 } from 'react-native';
@@ -157,7 +157,7 @@ export default function ProfileViewer() {
         setIsSendingRequest(true);
         try {
             const response = await usersAPI.sendFriendRequest(emailOrPhone, 'Hi! I\'d like to connect with you on Goodminton.');
-            
+
             if (response.success) {
                 setFriendshipStatus('pending');
                 Alert.alert('Success', 'Friend request sent successfully!');
@@ -216,7 +216,7 @@ export default function ProfileViewer() {
                 );
             case 'not_friends':
                 return (
-                    <Pressable 
+                    <Pressable
                         style={styles.addFriendButton}
                         onPress={handleSendFriendRequest}
                         disabled={isSendingRequest}
@@ -290,7 +290,7 @@ export default function ProfileViewer() {
             >
                 {/* Profile Section */}
                 <View style={styles.profileSection}>
-                    <ProfileImage 
+                    <ProfileImage
                         displayName={profile.profile.displayName}
                         avatarUri={profile.profile.avatar}
                     />
@@ -323,13 +323,13 @@ export default function ProfileViewer() {
                             <Text style={styles.gameStatNumber}>{gamesPlayed}</Text>
                             <Text style={styles.gameStatLabel}>games played</Text>
                         </View>
-                        
+
                         <View style={styles.gameStatRow}>
                             <Text style={styles.gameStatNumber}>{gamesWon}</Text>
                             <Text style={styles.gameStatLabel}>won</Text>
                             <Text style={styles.upArrow}>↑</Text>
                         </View>
-                        
+
                         <View style={styles.gameStatRow}>
                             <Text style={styles.gameStatNumber}>{gamesLost}</Text>
                             <Text style={styles.gameStatLabel}>lost</Text>
@@ -339,11 +339,11 @@ export default function ProfileViewer() {
                         {gamesPlayed > 0 && (
                             <View style={styles.progressBarContainer}>
                                 <View style={styles.progressBar}>
-                                    <View 
+                                    <View
                                         style={[
-                                            styles.progressBarFill, 
+                                            styles.progressBarFill,
                                             { width: `${(gamesWon / gamesPlayed) * 100}%` }
-                                        ]} 
+                                        ]}
                                     />
                                 </View>
                             </View>
@@ -422,8 +422,8 @@ const styles = StyleSheet.create({
         backgroundColor: '#0E5B37',
         alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: 3,
-        borderColor: '#E8F5E8',
+        borderWidth: 5,
+        borderColor: '#339933',
         marginBottom: 16,
     },
     profileInitial: {
