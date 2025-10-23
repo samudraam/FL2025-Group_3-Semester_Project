@@ -43,15 +43,15 @@ export default function FriendRequests({ refreshTrigger }: FriendRequestsProps) 
   const isMountedRef = useRef(true);
   
   // Debug logging
-  console.log('🔍 FriendRequests render - friendRequests.length:', friendRequests.length, 'isLoading:', isLoading, 'isFetching:', isFetching, 'refreshTrigger:', refreshTrigger);
+  //console.log('🔍 FriendRequests render - friendRequests.length:', friendRequests.length, 'isLoading:', isLoading, 'isFetching:', isFetching, 'refreshTrigger:', refreshTrigger);
 
   /**
    * Fetch pending friend requests on mount with slight delay to stagger API calls
    */
   useEffect(() => {
-    console.log('🚀 FriendRequests mount effect triggered');
+    console.log('FriendRequests mount effect triggered');
     const timer = setTimeout(() => {
-      console.log('⏰ FriendRequests initial fetch timer fired');
+      console.log('FriendRequests initial fetch timer fired');
       // Bypass cache on first load to avoid stale empty results
       fetchFriendRequests(true);
     }, 1000); // 1 second delay to prevent rate limiting
@@ -70,21 +70,21 @@ export default function FriendRequests({ refreshTrigger }: FriendRequestsProps) 
    * Debounced to prevent rapid successive fetches
    */
   useEffect(() => {
-    console.log('🔔 FriendRequests notification effect - notifications.length:', notifications.length, 'lastNotificationCount:', lastNotificationCount);
+    console.log('FriendRequests notification effect - notifications.length:', notifications.length, 'lastNotificationCount:', lastNotificationCount);
     const friendRequestNotifications = notifications.filter(
       (n) => n.type === 'friend_request'
     );
     
-    console.log('🔔 Friend request notifications:', friendRequestNotifications.length);
+    console.log('Friend request notifications:', friendRequestNotifications.length);
     
     // Only fetch if we have new notifications (count increased)
     if (friendRequestNotifications.length > lastNotificationCount) {
-      console.log(`📈 Friend request notification count increased from ${lastNotificationCount} to ${friendRequestNotifications.length}`);
+      console.log(`Friend request notification count increased from ${lastNotificationCount} to ${friendRequestNotifications.length}`);
       setLastNotificationCount(friendRequestNotifications.length);
       
       // Debounce the fetch to prevent rapid successive calls
       const timeoutId = setTimeout(() => {
-        console.log('⏳ Debounced friend request fetch triggered');
+        console.log('Debounced friend request fetch triggered');
         fetchFriendRequests(true);
       }, 500); // 500ms debounce
       
@@ -100,7 +100,7 @@ export default function FriendRequests({ refreshTrigger }: FriendRequestsProps) 
    */
   useEffect(() => {
     if (refreshTrigger && refreshTrigger > 0) {
-      console.log('🔄 External refresh trigger received:', refreshTrigger);
+      console.log('External refresh trigger received:', refreshTrigger);
       fetchFriendRequests(true);
     }
   }, [refreshTrigger]);
@@ -110,17 +110,17 @@ export default function FriendRequests({ refreshTrigger }: FriendRequestsProps) 
    * Always ensures we show empty state even on API failures
    */
   const fetchFriendRequests = async (isRefresh = false) => {
-    console.log('🔄 fetchFriendRequests called - isRefresh:', isRefresh, 'isFetching:', isFetching, 'current friendRequests.length:', friendRequests.length);
+    console.log('fetchFriendRequests called - isRefresh:', isRefresh, 'isFetching:', isFetching, 'current friendRequests.length:', friendRequests.length);
     
     // Prevent multiple simultaneous fetches
     if (isFetching) {
-      console.log('⚠️ Friend requests fetch already in progress, skipping');
+      console.log('Friend requests fetch already in progress, skipping');
       return;
     }
     
     try {
       const mySeq = ++latestRequestSeq.current;
-      console.log('🔢 Starting fetch with sequence:', mySeq, 'latestRequestSeq:', latestRequestSeq.current);
+      console.log('Starting fetch with sequence:', mySeq, 'latestRequestSeq:', latestRequestSeq.current);
       setIsFetching(true);
       if (isRefresh) {
         setIsRefreshing(true);
@@ -128,7 +128,7 @@ export default function FriendRequests({ refreshTrigger }: FriendRequestsProps) 
         setIsLoading(true);
       }
       
-      console.log('🌐 Fetching friend requests from API...');
+      console.log('Fetching friend requests from API...');
       const response = await fetchWithRetry(
         () => friendRequestsAPI.getPending(),
         {
@@ -153,13 +153,15 @@ export default function FriendRequests({ refreshTrigger }: FriendRequestsProps) 
       console.log('🔍 Processing response - mySeq:', mySeq, 'latestRequestSeq:', latestRequestSeq.current, 'isMounted:', isMountedRef.current);
       console.log('🔍 pendingFromKnownShapes:', pendingFromKnownShapes);
       
+      // TODO: Figure out what this is about... Why are my things not mounting correctly and always require reload??
+
       if (mySeq === latestRequestSeq.current && isMountedRef.current) {
-        console.log('✅ Response is latest and component is mounted, updating state');
+        console.log('Response is latest and component is mounted, updating state');
         if (Array.isArray(pendingFromKnownShapes)) {
-          console.log('📝 Setting friendRequests from pendingFromKnownShapes:', pendingFromKnownShapes.length, 'items');
+          console.log('Setting friendRequests from pendingFromKnownShapes:', pendingFromKnownShapes.length, 'items');
           setFriendRequests(pendingFromKnownShapes);
         } else if ((response as any)?.success) {
-          console.log('📝 Setting friendRequests from response.pendingRequests:', (response as any)?.pendingRequests?.length || 0, 'items');
+          console.log('Setting friendRequests from response.pendingRequests:', (response as any)?.pendingRequests?.length || 0, 'items');
           setFriendRequests((response as any)?.pendingRequests || []);
         } else {
           // Preserve current list if response shape is unexpected

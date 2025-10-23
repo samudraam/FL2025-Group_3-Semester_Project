@@ -16,7 +16,7 @@ export default function Courts() {
     const [loading, setLoading] = useState(true);
 
     /**
-     * Default location (St Louis) as fallback
+     * Default location (St Louis) 
      */
     const defaultRegion = {
         latitude: 38.6270,
