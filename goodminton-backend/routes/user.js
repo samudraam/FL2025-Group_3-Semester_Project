@@ -7,10 +7,13 @@ const router = express.Router();
 const userController = require("../controllers/userController");
 const { authenticateToken } = require("../middleware/auth");
 
-// 获取好友排行榜需要登录
-// Getting the friend leaderboard requires authentication.
-// @route   GET /api/users/leaderboard
-// @desc    获取当前用户的好友排行榜 (Get the current user's friend leaderboard)
+// --- 更新后的好友排行榜路由 ---
+// --- Updated Friend Leaderboard Route ---
+
+// @route   GET /api/users/leaderboard?discipline=singles|doubles|mixed
+// @desc    获取好友排行榜 (可按项目筛选)
+// (Get the friend leaderboard - can filter by discipline)
+// @access  Private
 router.get(
   "/leaderboard",
   authenticateToken,
