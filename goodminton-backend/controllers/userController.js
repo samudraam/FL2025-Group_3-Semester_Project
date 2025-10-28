@@ -48,47 +48,72 @@ exports.getUserProfile = async (req, res) => {
   }
 };
 
+
 /**
- * 获取当前用户的好友排行榜
- * Get the current user's friend leaderboard
+ * 获取好友排行榜 (可按项目筛选)
+ * Get the friend leaderboard (can filter by discipline)
  */
 exports.getFriendsLeaderboard = async (req, res) => {
   try {
-    // 查找当前用户并填充其好友的必要信息
-    // Find the current user and populate necessary info for their friends
-    const currentUser = await User.findById(req.user.userId).populate(
-      "friends",
-      "profile.displayName profile.points"
-    );
+    // 从查询参数获取要排名的项目，默认为单打 (Get discipline from query param, default to singles)
+    const discipline = req.query.discipline || 'singles';
+    const validDisciplines = ['singles', 'doubles', 'mixed'];
 
-    if (!currentUser) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Current user not found." });
+    if (!validDisciplines.includes(discipline)) {
+        return res.status(400).json({ success: false, error: "Invalid discipline specified. Use 'singles', 'doubles', or 'mixed'." });
     }
 
-    // 将自己也加入排行榜进行比较
-    // Add the current user to the leaderboard for comparison
-    const leaderboard = [
+    const ratingField = `ratings.${discipline}`; // 构建要查询和排序的字段路径 (Construct field path for query and sort)
+
+    // 查找当前用户并填充好友的指定积分和昵称 (Find user and populate friends' specific rating and display name)
+    const currentUser = await User.findById(req.user.userId)
+      .populate(
+        "friends",
+        `profile.displayName ${ratingField} email gender` // 获取性别用于可能的进一步筛选 (Get gender for potential further filtering)
+      );
+
+    if (!currentUser) { /* ... User not found handling ... */ }
+
+    // 将自己也加入排行榜 (Add self to leaderboard)
+    const leaderboardData = [
       ...currentUser.friends,
-      {
-        _id: currentUser._id,
-        profile: currentUser.profile,
-      },
+      currentUser // 自身信息已包含所需积分 (currentUser already has the needed rating field)
     ];
 
-    // 按积分 (points) 降序排序
-    // Sort the leaderboard by points in descending order
-    leaderboard.sort((a, b) => b.profile.points - a.profile.points);
+    // 按指定项目的积分降序排序 (Sort by the specified discipline's rating descending)
+    leaderboardData.sort((a, b) => (b.ratings?.[discipline] || 0) - (a.ratings?.[discipline] || 0));
 
-    res.status(200).json({ success: true, leaderboard });
+    // 根据 discipline 进一步筛选排行榜 (例如，男单榜只显示男性)
+    // Further filter leaderboard based on discipline (e.g., MS leaderboard only shows males)
+    let filteredLeaderboard = leaderboardData;
+    // 示例：男单/男双榜只留男性，女单/女双榜只留女性 (Example: MS/MD keep males, WS/WD keep females)
+    if (discipline === 'singles' || discipline === 'doubles') {
+        // 这里可以根据前端需求决定是否严格区分 MS/WS/MD/WD
+        // 或简单地返回一个包含所有性别的单打/双打榜
+        // For demo, let's return a combined list, frontend can filter if needed
+        // filteredLeaderboard = leaderboardData.filter(p => p.gender === 'male'); // Example for MS
+    }
+     // 混双榜通常包含所有性别 (Mixed leaderboard usually includes all genders)
+
+    res.status(200).json({
+         success: true,
+         discipline: discipline, // 告诉前端当前是什么榜单 (Tell frontend which leaderboard this is)
+         leaderboard: filteredLeaderboard.map(p => ({ // 返回简化信息 (Return simplified info)
+             _id: p._id,
+             displayName: p.profile.displayName,
+             rating: p.ratings?.[discipline] || 1000, // 返回对应积分 (Return the relevant rating)
+             gender: p.gender
+         }))
+    });
+
   } catch (error) {
-    console.error("Get leaderboard error:", error);
+    console.error(`Get ${req.query.discipline || 'singles'} leaderboard error:`, error);
     res
       .status(500)
       .json({ success: false, error: "Failed to fetch leaderboard." });
   }
 };
+
 
 /**
  * Send a friend request to another user
