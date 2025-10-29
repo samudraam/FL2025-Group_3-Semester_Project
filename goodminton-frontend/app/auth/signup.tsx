@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { authAPI } from "../../services/api";
 
 type SkillLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
+type Gender = 'male' | 'female';
 
 export default function Signup() {
     const router = useRouter();
@@ -26,6 +27,7 @@ export default function Signup() {
     const [displayName, setDisplayName] = useState("");
     const [phone, setPhone] = useState("");
     const [level, setLevel] = useState<SkillLevel | "">("");
+    const [gender, setGender] = useState<Gender | "">("");
     const [isLoading, setIsLoading] = useState(false);
 
     /**
@@ -38,6 +40,7 @@ export default function Signup() {
         displayName.trim().length > 0 &&
         phone.trim().length > 0 &&
         level !== "" &&
+        gender !== "" &&
         !isLoading;
 
     /**
@@ -55,6 +58,7 @@ export default function Signup() {
                 displayName: displayName.trim(),
                 phone: `+1${phone.trim()}`,
                 level: level as SkillLevel,
+                gender: gender as Gender,
             };
 
             const response = await authAPI.register(userData);
@@ -95,6 +99,27 @@ export default function Signup() {
                 ]}
             >
                 <Text style={[s.levelButtonText, isSelected && s.levelButtonTextSelected]}>
+                    {label}
+                </Text>
+            </Pressable>
+        );
+    };
+
+    /**
+     * Renders a selectable gender button
+     */
+    const GenderButton = ({ value, label }: { value: Gender; label: string }) => {
+        const isSelected = gender === value;
+        return (
+            <Pressable
+                onPress={() => setGender(value)}
+                style={({ pressed }) => [
+                    s.genderButton,
+                    isSelected && s.genderButtonSelected,
+                    { opacity: pressed ? 0.7 : 1 }
+                ]}
+            >
+                <Text style={[s.genderButtonText, isSelected && s.genderButtonTextSelected]}>
                     {label}
                 </Text>
             </Pressable>
@@ -177,6 +202,13 @@ export default function Signup() {
                             textContentType="telephoneNumber"
                             editable={!isLoading}
                         />
+
+                        {/* Gender Selection */}
+                        <Text style={s.sectionLabel}>Gender</Text>
+                        <View style={s.genderContainer}>
+                            <GenderButton value="male" label="Male" />
+                            <GenderButton value="female" label="Female" />
+                        </View>
 
                         {/* Skill Level Selection */}
                         <Text style={s.sectionLabel}>Skill Level</Text>
@@ -304,6 +336,38 @@ const s = StyleSheet.create({
     },
     
     levelButtonTextSelected: {
+        color: "white",
+    },
+
+    genderContainer: {
+        flexDirection: "row",
+        gap: 12,
+        marginBottom: 16,
+    },
+    
+    genderButton: {
+        flex: 1,
+        backgroundColor: "white",
+        borderRadius: 20,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderWidth: 2,
+        borderColor: "#D0D0D0",
+        alignItems: "center",
+    },
+    
+    genderButtonSelected: {
+        backgroundColor: "#0E5B37",
+        borderColor: "#0E5B37",
+    },
+    
+    genderButtonText: {
+        color: "#666",
+        fontSize: 14,
+        fontFamily: "DMSans_600SemiBold",
+    },
+    
+    genderButtonTextSelected: {
         color: "white",
     },
 
