@@ -60,30 +60,7 @@ services:
       start_period: 30s
 
   # Frontend (Expo) DO I NEED THIS??
-  # frontend:
-  #   build:
-  #     context: ./goodminton-frontend
-  #     dockerfile: Dockerfile
-  #   container_name: badminton-frontend
-  #   restart: unless-stopped
-  #   environment:
-  #     EXPO_DEVTOOLS_LISTEN_ADDRESS: 0.0.0.0
-  #     REACT_NATIVE_PACKAGER_HOSTNAME: 0.0.0.0
-  #   ports:
-  #     - "0.0.0.0:8081:8081"  # Expo Metro Bundler
-  #     - "0.0.0.0:19000:19000"  # Expo DevTools
-  #     - "0.0.0.0:19001:19001"  # Expo DevTools
-  #     - "0.0.0.0:19002:19002"  # Expo DevTools
-  #     - "0.0.0.0:19006:19006"  # Web interface
-  #   depends_on:
-  #     - backend
-  #   networks:
-  #     - badminton-network
-  #   volumes:
-  #     - ./goodminton-frontend:/app
-  #     - /app/node_modules
-  #   stdin_open: true
-  #   tty: true
+  # According to prof, this does not need to be containerized since this is a emulator
 
 
 volumes:

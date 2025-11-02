@@ -1,5 +1,5 @@
 // MongoDB initialization script
-// This script runs when the MongoDB container starts for the first time
+// This script runs for MongoDB setup
 
 // Create the database and collections
 db = db.getSiblingDB("badmintonapp");

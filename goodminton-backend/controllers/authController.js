@@ -202,12 +202,30 @@ exports.getCurrentUser = async (req, res) => {
  */
 exports.createUser = async (req, res) => {
   try {
-    const { email, firstName, lastName, displayName, phone, level } = req.body;
+    const {
+      email,
+      firstName,
+      lastName,
+      displayName,
+      phone,
+      level,
+      gender,
+    } = req.body;
 
     if (!email) {
       return res.status(400).json({
         success: false,
         error: "Email is required",
+      });
+    }
+
+    const normalizedGender =
+      typeof gender === "string" ? gender.trim().toLowerCase() : "";
+    const allowedGenders = ["male", "female"];
+    if (!allowedGenders.includes(normalizedGender)) {
+      return res.status(400).json({
+        success: false,
+        error: "Gender is required and must be either 'male' or 'female'",
       });
     }
 
@@ -237,6 +255,7 @@ exports.createUser = async (req, res) => {
       email: email.toLowerCase(),
       firebaseUid,
       phone,
+      gender: normalizedGender,
       profile: {
         firstName: firstName || email.split("@")[0],
         lastName: lastName || "",
@@ -251,6 +270,7 @@ exports.createUser = async (req, res) => {
       user: {
         id: user._id,
         email: user.email,
+        gender: user.gender,
         profile: user.profile,
       },
     });
