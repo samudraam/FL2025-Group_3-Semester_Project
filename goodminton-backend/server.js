@@ -10,6 +10,7 @@ const connectDB = require("./config/db");
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/user");
 const gameRoutes = require("./routes/games");
+const postRoutes = require("./routes/post"); // <-- 新增：引入帖子路由 (NEW: Import post routes)
 const socketService = require("./services/socketService");
 
 // Initialize Express application
@@ -49,6 +50,8 @@ app.use(limiter);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/games", gameRoutes);
+app.use("/api/posts", postRoutes); // <-- 新增：挂载帖子路由 (NEW: Mount post routes)
+
 
 // Health check endpoint
 app.get("/health", (req, res) => {
