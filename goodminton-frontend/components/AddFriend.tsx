@@ -129,6 +129,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     fontSize: 14,
     fontFamily: 'DMSans_400Regular',
+    letterSpacing: 2,
     color: '#333333',
   },
   searchButton: {

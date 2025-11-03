@@ -180,8 +180,15 @@ exports.getCurrentUser = async (req, res) => {
  */
 exports.createUser = async (req, res) => {
   try {
-    // --- FIX: Include 'gender' in destructuring ---
-    const { email, gender, firstName, lastName, displayName, phone, level } = req.body;
+    const {
+      email,
+      firstName,
+      lastName,
+      displayName,
+      phone,
+      level,
+      gender,
+    } = req.body;
 
     // --- Validation ---
     if (!email || !gender) { // Ensure gender is also required here if model requires it
@@ -190,7 +197,16 @@ exports.createUser = async (req, res) => {
         error: "Email and gender are required", // Updated error message
       });
     }
-    // Optional: Add more specific validation for gender enum if needed
+
+    const normalizedGender =
+      typeof gender === "string" ? gender.trim().toLowerCase() : "";
+    const allowedGenders = ["male", "female"];
+    if (!allowedGenders.includes(normalizedGender)) {
+      return res.status(400).json({
+        success: false,
+        error: "Gender is required and must be either 'male' or 'female'",
+      });
+    }
 
     // Check if user already exists (by email)
     const existingUserByEmail = await User.findOne({ email: email.toLowerCase() });
@@ -221,8 +237,8 @@ exports.createUser = async (req, res) => {
     const newUser = await User.create({
       email: email.toLowerCase(),
       firebaseUid,
-      gender, // --- FIX: Pass 'gender' to User.create ---
-      phone, // Pass phone if provided
+      phone,
+      gender: normalizedGender,
       profile: {
         firstName: firstName || email.split("@")[0], // Default first name from email
         lastName: lastName || "", // Default empty last name
@@ -234,10 +250,12 @@ exports.createUser = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "User created successfully. Please request OTP to login.", // Guide user to next step
-      user: { // Return minimal info, user needs to login to get full profile + token
-        id: newUser._id,
-        email: newUser.email,
+      message: "User created successfully",
+      user: {
+        id: user._id,
+        email: user.email,
+        gender: user.gender,
+        profile: user.profile,
       },
     });
   } catch (error) {

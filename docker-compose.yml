@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: badminton-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-password123}
+      MONGO_INITDB_DATABASE: badmintonapp
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./docker/mongodb/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    networks:
+      - badminton-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Backend API
+  backend:
+    build:
+      context: ./goodminton-backend
+      dockerfile: Dockerfile
+    container_name: badminton-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${PORT:-3001}
+      MONGODB_URI: ${MONGODB_URI:-mongodb://admin:password123@mongodb:27017/badmintonapp?authSource=admin}
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:19006}
+      JWT_SECRET: ${JWT_SECRET:-goodmintonJWT}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      EMAIL_SERVICE: ${EMAIL_SERVICE:-SendGrid}
+      EMAIL_USER: ${EMAIL_USER}
+      EMAIL_PASS: ${EMAIL_PASS}
+      SERVER_URL: ${SERVER_URL:-http://localhost:3001}
+    ports:
+      - "0.0.0.0:${PORT:-3001}:3001"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - badminton-network
+    volumes:
+      - ./goodminton-backend:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Frontend (Expo) DO I NEED THIS??
+  # According to prof, this does not need to be containerized since this is a emulator
+
+
+volumes:
+  mongodb_data:
+    driver: local
+
+networks:
+  badminton-network:
+    driver: bridge

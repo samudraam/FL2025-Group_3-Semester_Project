@@ -98,8 +98,8 @@ RAW, JSON
 
 In development mode, the OTP code is printed to the console:
 ```
-🔑 OTP Code: 123456
-📧 Email Preview: https://ethereal.email/message/...
+OTP Code: 123456
+Email Preview: https://ethereal.email/message/...
 ```
 
 ## Tech Stack
@@ -112,27 +112,6 @@ In development mode, the OTP code is printed to the console:
 - **CORS** - Cross-origin resource sharing
 - **Express Rate Limit** - Rate limiting
 
-## 📁 Project Structure
-
-```
-goodminton-backend/
-├── config/
-│   └── db.js              # Database connection
-├── controllers/
-│   └── authController.js  # Auth logic (OTP, register, etc.)
-├── middleware/
-│   └── auth.js            # JWT verification middleware
-├── models/
-│   ├── User.js            # User schema
-│   └── AuthToken.js       # OTP token schema
-├── routes/
-│   └── auth.js            # API routes
-├── services/
-│   └── emailService.js    # Email sending logic
-├── server.js              # Main server file
-├── test-otp.js            # Test script
-└── package.json
-```
 
 ## 🔧 Environment Variables
 
@@ -158,55 +137,3 @@ EMAIL_SERVICE=gmail
 EMAIL_USER=your-email@gmail.com
 EMAIL_PASS=your-app-password
 ```
-
-
-
-### 1. Register a User
-
-```javascript
-POST /api/auth/register
-{
-  "email": "user@example.com",
-  "firstName": "John",
-  "lastName": "Doe",
-  "displayName": "John Doe",
-  "phone": "+1234567890",
-  "level": "beginner"
-}
-```
-
-### 2. Request OTP
-
-```javascript
-POST /api/auth/login/otp
-{
-  "email": "user@example.com"
-}
-```
-
-### 3. Verify OTP
-
-```javascript
-POST /api/auth/verify/otp
-{
-  "email": "user@example.com",
-  "otp": "123456"
-}
-
-// Returns:
-{
-  "success": true,
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": { ... }
-}
-```
-
-### 4. Use Token for Protected Routes
-
-```javascript
-GET /api/auth/me
-Headers:
-  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
-

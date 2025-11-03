@@ -2,6 +2,7 @@
  * @file controllers/gameController.js
  * @description 比赛相关的业务逻辑控制器, 支持单双打 (Controller for game-related business logic, supports singles and doubles)
  */
+const mongoose = require("mongoose");
 const Game = require("../models/Game");
 const User = require("../models/User");
 const ratingService = require("../services/ratingService");
@@ -15,13 +16,13 @@ exports.createGame = async (req, res) => {
   try {
     const creatorId = req.user.userId;
     const {
-      gameType,    // 'singles' or 'doubles'
-      scores,      // e.g., [[21, 19], [21, 18]]
+      gameType, // 'singles' or 'doubles'
+      scores, // e.g., [[21, 19], [21, 18]]
       // --- 单打需要 --- (Needed for singles)
       opponentId,
       winnerId, // 单打时的胜者ID (Winner ID in singles)
       // --- 双打需要 --- (Needed for doubles)
-      teammateId,  // 创建者的队友 (Creator's teammate)
+      teammateId, // 创建者的队友 (Creator's teammate)
       opponent1Id,
       opponent2Id,
       winnerTeam, // 'teamA' or 'teamB'
@@ -34,37 +35,52 @@ exports.createGame = async (req, res) => {
 
     // --- 数据验证与队伍组建 --- (Data validation and team formation) ---
     if (!gameType || !scores) {
-        return res.status(400).json({ success: false, error: "Game type and scores are required." });
+      return res
+        .status(400)
+        .json({ success: false, error: "Game type and scores are required." });
     }
 
     if (gameType === "singles") {
       if (!opponentId || !winnerId) {
-        return res.status(400).json({ success: false, error: "Opponent ID and Winner ID are required for singles." });
+        return res.status(400).json({
+          success: false,
+          error: "Opponent ID and Winner ID are required for singles.",
+        });
       }
       teamB = [opponentId];
       pendingConfirmationFrom = [opponentId];
       // Determine winner team based on winnerId for singles
       if (winnerId === creatorId) {
-          gameWinnerTeam = 'teamA';
+        gameWinnerTeam = "teamA";
       } else if (winnerId === opponentId) {
-          gameWinnerTeam = 'teamB';
+        gameWinnerTeam = "teamB";
       } else {
-          return res.status(400).json({ success: false, error: "Winner ID must be one of the players." });
+        return res.status(400).json({
+          success: false,
+          error: "Winner ID must be one of the players.",
+        });
       }
-
     } else if (gameType === "doubles") {
       if (!teammateId || !opponent1Id || !opponent2Id || !winnerTeam) {
-        return res.status(400).json({ success: false, error: "Teammate ID, opponent IDs, and winner team are required for doubles." });
+        return res.status(400).json({
+          success: false,
+          error:
+            "Teammate ID, opponent IDs, and winner team are required for doubles.",
+        });
       }
       teamA.push(teammateId);
       teamB = [opponent1Id, opponent2Id];
       pendingConfirmationFrom = [opponent1Id, opponent2Id]; // 两个对手都需要确认 (Both opponents need to confirm initially) - though only one needs to respond
-      if (winnerTeam !== 'teamA' && winnerTeam !== 'teamB') {
-           return res.status(400).json({ success: false, error: "Winner team must be 'teamA' or 'teamB'." });
+      if (winnerTeam !== "teamA" && winnerTeam !== "teamB") {
+        return res.status(400).json({
+          success: false,
+          error: "Winner team must be 'teamA' or 'teamB'.",
+        });
       }
-
     } else {
-      return res.status(400).json({ success: false, error: "Invalid game type." });
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid game type." });
     }
 
     // --- 创建比赛记录 --- (Create game record) ---
@@ -82,11 +98,15 @@ exports.createGame = async (req, res) => {
     await newGame.save();
 
     // --- 发送实时通知给需要确认的对手 --- (Send real-time notification to opponents who need to confirm) ---
-    pendingConfirmationFrom.forEach(opponentUserId => {
-        socketService.notifyUser(opponentUserId.toString(), "game:confirmation:received", {
-            gameId: newGame._id,
-            createdBy: creatorId, // 可以考虑填充创建者昵称 (Consider populating creator's display name)
-        });
+    pendingConfirmationFrom.forEach((opponentUserId) => {
+      socketService.notifyUser(
+        opponentUserId.toString(),
+        "game:confirmation:received",
+        {
+          gameId: newGame._id,
+          createdBy: creatorId, // 可以考虑填充创建者昵称 (Consider populating creator's display name)
+        }
+      );
     });
 
     res.status(201).json({
@@ -94,13 +114,11 @@ exports.createGame = async (req, res) => {
       message: "Game created successfully, pending opponent confirmation.",
       game: newGame,
     });
-
   } catch (error) {
     console.error("Create game error:", error);
     res.status(500).json({ success: false, error: "Failed to create game." });
   }
 };
-
 
 /**
  * 确认一场待处理的比赛结果, 并更新多项积分
@@ -116,30 +134,38 @@ exports.confirmGame = async (req, res) => {
     const game = await Game.findById(gameId);
 
     if (!game) {
-        return res.status(404).json({ success: false, error: "Game not found." });
-     }
+      return res.status(404).json({ success: false, error: "Game not found." });
+    }
     if (game.status !== "pending") {
-        return res.status(400).json({
-          success: false,
-          error: "This game is not pending confirmation.",
-        });
-     }
+      return res.status(400).json({
+        success: false,
+        error: "This game is not pending confirmation.",
+      });
+    }
 
     // 获取所有参与比赛的玩家的完整信息 (Get full info for all players involved)
     const allPlayerIds = [...game.teamA, ...game.teamB];
-    const players = await User.find({ '_id': { $in: allPlayerIds } });
+    const players = await User.find({ _id: { $in: allPlayerIds } });
 
-     // 确保找到了所有玩家 (Ensure all players were found)
-     if (players.length !== allPlayerIds.length) {
-         console.error(`Error: Could not find all players for game ${gameId}. Found ${players.length}, expected ${allPlayerIds.length}`);
-         return res.status(500).json({ success: false, error: "Internal error: Player data mismatch." });
-     }
+    // 确保找到了所有玩家 (Ensure all players were found)
+    if (players.length !== allPlayerIds.length) {
+      console.error(
+        `Error: Could not find all players for game ${gameId}. Found ${players.length}, expected ${allPlayerIds.length}`
+      );
+      return res.status(500).json({
+        success: false,
+        error: "Internal error: Player data mismatch.",
+      });
+    }
 
     // 验证确认者身份 (Verify confirmer)
-    const confirmer = players.find(p => p._id.equals(confirmerId));
-    const isConfirmerInTeamB = game.teamB.some(id => id.equals(confirmerId));
+    const confirmer = players.find((p) => p._id.equals(confirmerId));
+    const isConfirmerInTeamB = game.teamB.some((id) => id.equals(confirmerId));
     if (!confirmer || !isConfirmerInTeamB) {
-        return res.status(403).json({ success: false, error: "You are not authorized to confirm this game." });
+      return res.status(403).json({
+        success: false,
+        error: "You are not authorized to confirm this game.",
+      });
     }
 
     // --- 更新比赛状态 --- (Update game status) ---
@@ -151,109 +177,147 @@ exports.confirmGame = async (req, res) => {
 
     // --- 计算并更新积分 --- (Calculate and update ratings) ---
     try {
-        const updatedRatings = calculateNewRatings(game, players);
+      const updatedRatings = calculateNewRatings(game, players);
 
-        // 批量更新用户信息 (Batch update user info)
-        const updatePromises = Object.entries(updatedRatings).map(async ([playerId, ratingsUpdate]) => {
-            const updateDoc = {};
-            // 构建 $set 操作符内容 (Build $set operator content)
-            for (const field in ratingsUpdate) {
-                // 确保字段存在于模型中 (Ensure field exists in the model)
-                 if (['singles', 'doubles', 'mixed'].includes(field)) {
-                     updateDoc[`ratings.${field}`] = ratingsUpdate[field];
-                 } else {
-                     console.warn(`Attempted to update unknown rating field: ${field} for player ${playerId}`);
-                 }
-            }
-            // 同时更新统计数据 (Update stats simultaneously)
-            // 查找玩家对象以检查是否获胜 (Find player object to check winner status)
-            const player = players.find(p => p._id.equals(playerId));
-            const isWinner = (game.winnerTeam === 'teamA' && game.teamA.some(id => id.equals(playerId))) ||
-                             (game.winnerTeam === 'teamB' && game.teamB.some(id => id.equals(playerId)));
-
-            if (Object.keys(updateDoc).length > 0) { // 只有在有积分更新时才执行 $set (Only perform $set if there are rating updates)
-                await User.findByIdAndUpdate(playerId, {
-                    $set: updateDoc,
-                    $inc: {
-                        'stats.gamesPlayed': 1,
-                        'stats.gamesWon': isWinner ? 1 : 0
-                    }
-                }, { new: true }); // 添加 {new: true} 以便可以链式调用 updateStats
-
-                // 获取更新后的用户并调用 updateStats (Get updated user and call updateStats)
-                const updatedUser = await User.findById(playerId);
-                if (updatedUser) {
-                    await updatedUser.updateStats(); // 更新胜率 (Update win rate)
-                }
+      // 批量更新用户信息 (Batch update user info)
+      const updatePromises = Object.entries(updatedRatings).map(
+        async ([playerId, ratingsUpdate]) => {
+          const updateDoc = {};
+          // 构建 $set 操作符内容 (Build $set operator content)
+          for (const field in ratingsUpdate) {
+            // 确保字段存在于模型中 (Ensure field exists in the model)
+            if (["singles", "doubles", "mixed"].includes(field)) {
+              updateDoc[`ratings.${field}`] = ratingsUpdate[field];
             } else {
-                 // 即使没有积分更新，也更新统计数据 (Update stats even if no rating changed)
-                 await User.findByIdAndUpdate(playerId, {
-                     $inc: {
-                         'stats.gamesPlayed': 1,
-                         'stats.gamesWon': isWinner ? 1 : 0
-                     }
-                 }, { new: true });
-                 const updatedUser = await User.findById(playerId);
-                 if (updatedUser) {
-                     await updatedUser.updateStats(); // 更新胜率 (Update win rate)
-                 }
+              console.warn(
+                `Attempted to update unknown rating field: ${field} for player ${playerId}`
+              );
             }
-        });
+          }
+          // 同时更新统计数据 (Update stats simultaneously)
+          // 查找玩家对象以检查是否获胜 (Find player object to check winner status)
+          const player = players.find((p) => p._id.equals(playerId));
+          const isWinner =
+            (game.winnerTeam === "teamA" &&
+              game.teamA.some((id) => id.equals(playerId))) ||
+            (game.winnerTeam === "teamB" &&
+              game.teamB.some((id) => id.equals(playerId)));
 
-        await Promise.all(updatePromises);
+          if (Object.keys(updateDoc).length > 0) {
+            // 只有在有积分更新时才执行 $set (Only perform $set if there are rating updates)
+            await User.findByIdAndUpdate(
+              playerId,
+              {
+                $set: updateDoc,
+                $inc: {
+                  "stats.gamesPlayed": 1,
+                  "stats.gamesWon": isWinner ? 1 : 0,
+                },
+              },
+              { new: true }
+            ); // 添加 {new: true} 以便可以链式调用 updateStats
 
+            // 获取更新后的用户并调用 updateStats (Get updated user and call updateStats)
+            const updatedUser = await User.findById(playerId);
+            if (updatedUser) {
+              await updatedUser.updateStats(); // 更新胜率 (Update win rate)
+            }
+          } else {
+            // 即使没有积分更新，也更新统计数据 (Update stats even if no rating changed)
+            await User.findByIdAndUpdate(
+              playerId,
+              {
+                $inc: {
+                  "stats.gamesPlayed": 1,
+                  "stats.gamesWon": isWinner ? 1 : 0,
+                },
+              },
+              { new: true }
+            );
+            const updatedUser = await User.findById(playerId);
+            if (updatedUser) {
+              await updatedUser.updateStats(); // 更新胜率 (Update win rate)
+            }
+          }
+        }
+      );
+
+      await Promise.all(updatePromises);
     } catch (ratingError) {
-        console.error(`Rating calculation error for game ${gameId}:`, ratingError);
-        // 重要：即使积分计算失败，比赛状态也已改为 confirmed，需要考虑如何处理或记录这个错误
-        // Important: Even if rating calculation fails, game status is already confirmed. Need to consider how to handle/log this error.
-        // 可以考虑添加一个字段标记积分计算是否出错，或者发送警报
-        // Consider adding a flag to mark rating error or send an alert
+      console.error(
+        `Rating calculation error for game ${gameId}:`,
+        ratingError
+      );
+      // 重要：即使积分计算失败，比赛状态也已改为 confirmed，需要考虑如何处理或记录这个错误
+      // Important: Even if rating calculation fails, game status is already confirmed. Need to consider how to handle/log this error.
+      // 可以考虑添加一个字段标记积分计算是否出错，或者发送警报
+      // Consider adding a flag to mark rating error or send an alert
     }
 
     // --- 发送实时通知 --- (Send real-time notifications) ---
-     // Populate confirmer's name before sending notification
-     await game.populate('confirmedBy', 'profile.displayName');
-     const notificationData = {
-         gameId: game._id,
-         confirmedBy: {
-             id: confirmerId,
-             displayName: confirmer?.profile.displayName || 'Opponent'
-         },
-         gameType: game.gameType,
-         winnerTeam: game.winnerTeam,
-         scores: game.scores
-     };
+    // Populate confirmer's name before sending notification
+    await game.populate("confirmedBy", "profile.displayName");
+    const notificationData = {
+      gameId: game._id,
+      confirmedBy: {
+        id: confirmerId,
+        displayName: confirmer?.profile.displayName || "Opponent",
+      },
+      gameType: game.gameType,
+      winnerTeam: game.winnerTeam,
+      scores: game.scores,
+    };
 
     // 通知创建者 (Notify the creator)
-    socketService.notifyUser(game.createdBy.toString(), "game:confirmed", notificationData);
+    socketService.notifyUser(
+      game.createdBy.toString(),
+      "game:confirmed",
+      notificationData
+    );
     // 如果是双打，通知创建者的队友 (If doubles, notify the creator's teammate)
-    if (game.gameType === 'doubles' && game.teamA.length > 1) {
-        const teammate = players.find(p => game.teamA.some(id => id.equals(p._id)) && !p._id.equals(game.createdBy));
-        if (teammate) {
-            socketService.notifyUser(teammate._id.toString(), "game:confirmed", notificationData);
-        }
+    if (game.gameType === "doubles" && game.teamA.length > 1) {
+      const teammate = players.find(
+        (p) =>
+          game.teamA.some((id) => id.equals(p._id)) &&
+          !p._id.equals(game.createdBy)
+      );
+      if (teammate) {
+        socketService.notifyUser(
+          teammate._id.toString(),
+          "game:confirmed",
+          notificationData
+        );
+      }
     }
     // 如果是双打，通知另一个对手 (If doubles, notify the other opponent)
-     if (game.gameType === 'doubles') {
-        const otherOpponent = players.find(p => game.teamB.some(id => id.equals(p._id)) && !p._id.equals(confirmerId));
-         if (otherOpponent) {
-             socketService.notifyUser(otherOpponent._id.toString(), "game:confirmed", notificationData);
-         }
-     }
-
+    if (game.gameType === "doubles") {
+      const otherOpponent = players.find(
+        (p) =>
+          game.teamB.some((id) => id.equals(p._id)) &&
+          !p._id.equals(confirmerId)
+      );
+      if (otherOpponent) {
+        socketService.notifyUser(
+          otherOpponent._id.toString(),
+          "game:confirmed",
+          notificationData
+        );
+      }
+    }
 
     res.status(200).json({
       success: true,
       message: "Game confirmed successfully. Ratings updated.",
-      game: await Game.findById(gameId).populate('teamA teamB confirmedBy createdBy', 'profile.displayName email'), // 返回填充了昵称的 game 对象 (Return game object populated with display names)
+      game: await Game.findById(gameId).populate(
+        "teamA teamB confirmedBy createdBy",
+        "profile.displayName email"
+      ), // 返回填充了昵称的 game 对象 (Return game object populated with display names)
     });
   } catch (error) {
     console.error("Confirm game error:", error);
     res.status(500).json({ success: false, error: "Failed to confirm game." });
   }
 };
-
-
 
 /**
  * 获取当前用户待处理的比赛确认请求
@@ -278,18 +342,18 @@ exports.getPendingGameConfirmations = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      pendingGames: pendingGames.map(game => ({ // 返回简化且清晰的格式 (Return simplified and clear format)
-          _id: game._id,
-          gameType: game.gameType,
-          teamA: game.teamA,
-          teamB: game.teamB,
-          scores: game.scores,
-          winnerTeam: game.winnerTeam, // 前端可能需要这个来展示预设结果 (Frontend might need this to show proposed result)
-          createdBy: game.createdBy,
-          createdAt: game.createdAt,
+      pendingGames: pendingGames.map((game) => ({
+        // 返回简化且清晰的格式 (Return simplified and clear format)
+        _id: game._id,
+        gameType: game.gameType,
+        teamA: game.teamA,
+        teamB: game.teamB,
+        scores: game.scores,
+        winnerTeam: game.winnerTeam, // 前端可能需要这个来展示预设结果 (Frontend might need this to show proposed result)
+        createdBy: game.createdBy,
+        createdAt: game.createdAt,
       })),
     });
-
   } catch (error) {
     console.error("Get pending game confirmations error:", error);
     res.status(500).json({
@@ -298,7 +362,6 @@ exports.getPendingGameConfirmations = async (req, res) => {
     });
   }
 };
-
 
 /**
  * 获取当前用户最近一周内已确认的比赛记录
@@ -326,29 +389,31 @@ exports.getWeeklyGames = async (req, res) => {
       // 查询 respondedAt 在本周范围内 (Query for respondedAt within the week)
       respondedAt: { $gte: weekStart, $lte: weekEnd },
       // 查询 teamA 或 teamB 中包含当前用户的比赛 (Query for games where user is in teamA OR teamB)
-      $or: [
-          { teamA: currentUserId },
-          { teamB: currentUserId }
-      ]
+      $or: [{ teamA: currentUserId }, { teamB: currentUserId }],
     })
       .populate("teamA", "profile.displayName") // 填充所有玩家昵称 (Populate all player display names)
       .populate("teamB", "profile.displayName")
       .sort({ respondedAt: -1 }); // 按确认时间降序排序 (Sort by confirmation date descending)
 
-
     // --- 格式化返回结果 --- (Format the results) ---
     const formattedGames = games.map((game) => {
       // 判断当前用户在哪一队 (Determine which team the current user is on)
-      const userIsInTeamA = game.teamA.some(player => player._id.equals(currentUserId));
-      const userTeam = userIsInTeamA ? 'teamA' : 'teamB';
-      const opponentTeam = userIsInTeamA ? 'teamB' : 'teamA';
+      const userIsInTeamA = game.teamA.some((player) =>
+        player._id.equals(currentUserId)
+      );
+      const userTeam = userIsInTeamA ? "teamA" : "teamB";
+      const opponentTeam = userIsInTeamA ? "teamB" : "teamA";
 
       // 判断胜负 (Determine win/loss)
       const userWon = game.winnerTeam === userTeam;
 
       // 获取队伍名称 (Get team names)
-      const teamANames = game.teamA.map(p => p.profile.displayName || "Unknown").join(" & ");
-      const teamBNames = game.teamB.map(p => p.profile.displayName || "Unknown").join(" & ");
+      const teamANames = game.teamA
+        .map((p) => p.profile.displayName || "Unknown")
+        .join(" & ");
+      const teamBNames = game.teamB
+        .map((p) => p.profile.displayName || "Unknown")
+        .join(" & ");
 
       return {
         id: game._id.toString(),
@@ -358,7 +423,8 @@ exports.getWeeklyGames = async (req, res) => {
         teamB: teamBNames,
         scores: game.scores, // 直接返回原始分数数组 (Return raw scores array)
         result: userWon ? "win" : "loss",
-        winnerTeamDisplay: game.winnerTeam === 'teamA' ? teamANames : teamBNames, // 显示获胜队伍名称
+        winnerTeamDisplay:
+          game.winnerTeam === "teamA" ? teamANames : teamBNames, // 显示获胜队伍名称
       };
     });
 
@@ -375,7 +441,6 @@ exports.getWeeklyGames = async (req, res) => {
   }
 };
 
-
 /**
  * 拒绝一个待处理的比赛结果 (单打或双打)
  * Reject a pending game result (singles or doubles)
@@ -387,7 +452,7 @@ exports.rejectGame = async (req, res) => {
     const rejecterId = req.user.userId; // 进行拒绝操作的用户 (The user performing the rejection)
 
     // 查找比赛 (Find the game)
-    const game = await Game.findById(gameId).populate('teamA teamB');
+    const game = await Game.findById(gameId).populate("teamA teamB");
 
     if (!game) {
       return res.status(404).json({ success: false, error: "Game not found." });
@@ -402,7 +467,9 @@ exports.rejectGame = async (req, res) => {
     }
 
     // 验证拒绝者是否是 B 队的成员 (Verify if the rejecter is a member of Team B)
-    const isRejecterInTeamB = game.teamB.some(player => player._id.toString() === rejecterId);
+    const isRejecterInTeamB = game.teamB.some(
+      (player) => player._id.toString() === rejecterId
+    );
 
     if (!isRejecterInTeamB) {
       return res.status(403).json({
@@ -426,27 +493,34 @@ exports.rejectGame = async (req, res) => {
       gameId: game._id,
       rejectedBy: rejecterId,
     });
-     // 如果是双打，通知创建者的队友 (If doubles, notify the creator's teammate)
-    if (game.gameType === 'doubles' && game.teamA.length > 1) {
-        const teammate = game.teamA.find(p => p._id.toString() !== game.createdBy.toString());
-        if (teammate) {
-            socketService.notifyUser(teammate._id.toString(), "game:rejected", {
-                gameId: game._id,
-                rejectedBy: rejecterId,
-            });
-        }
+    // 如果是双打，通知创建者的队友 (If doubles, notify the creator's teammate)
+    if (game.gameType === "doubles" && game.teamA.length > 1) {
+      const teammate = game.teamA.find(
+        (p) => p._id.toString() !== game.createdBy.toString()
+      );
+      if (teammate) {
+        socketService.notifyUser(teammate._id.toString(), "game:rejected", {
+          gameId: game._id,
+          rejectedBy: rejecterId,
+        });
+      }
     }
     // 如果是双打，通知另一个对手 (If doubles, notify the other opponent)
-     if (game.gameType === 'doubles') {
-        const otherOpponent = game.teamB.find(p => p._id.toString() !== rejecterId);
-         if (otherOpponent) {
-             socketService.notifyUser(otherOpponent._id.toString(), "game:rejected", {
-                 gameId: game._id,
-                 rejectedBy: rejecterId,
-             });
-         }
-     }
-
+    if (game.gameType === "doubles") {
+      const otherOpponent = game.teamB.find(
+        (p) => p._id.toString() !== rejecterId
+      );
+      if (otherOpponent) {
+        socketService.notifyUser(
+          otherOpponent._id.toString(),
+          "game:rejected",
+          {
+            gameId: game._id,
+            rejectedBy: rejecterId,
+          }
+        );
+      }
+    }
 
     res.status(200).json({
       success: true,
