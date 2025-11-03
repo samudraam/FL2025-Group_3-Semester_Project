@@ -50,6 +50,17 @@ export const CourtsIcon = ({ size = 35, color = '#0E5B37' }: { size?: number; co
 );
 
 /**
+ * Play placeholder icon - PNG image
+ */
+export const PlayIcon = ({ size = 35 }: { size?: number }) => (
+    <Image
+        source={require('../assets/BottomNavIcons/play.png')}
+        style={{ width: size, height: size, opacity: 0.85 }}
+        resizeMode="contain"
+    />
+);
+
+/**
  * Settings gear icon
  */
 export const SettingsIcon = ({ size = 30, color = '#0E5B37' }: { size?: number; color?: string }) => (

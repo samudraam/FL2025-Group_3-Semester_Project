@@ -38,8 +38,6 @@ export default function AddFriend() {
     setFound(null);
     try {
       const response = await usersAPI.search(trimmed);
-      // expected formats we handle:
-      // { success, users: [ ... ] } OR { success, user }
       const user: SearchResponseUser | null =
         response?.user || (Array.isArray(response?.users) && response.users.length > 0 ? response.users[0] : null);
       if (response?.success && user) setFound(user);
@@ -68,7 +66,7 @@ export default function AddFriend() {
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="search"
+          placeholder="search by email or phone"
           placeholderTextColor="#949494"
           autoCapitalize="none"
           keyboardType="email-address"

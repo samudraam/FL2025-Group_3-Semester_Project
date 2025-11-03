@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Image, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { friendRequestsAPI } from '../services/api';
 import { useSocket } from '../services/socketContext';
 import { fetchWithRetry } from '../services/apiHelpers';
-// Cache disabled for friend requests to ensure realtime correctness
+import { apiCache } from '../services/apiCache';
 
 /**
  * Friend request data structure from API
@@ -36,197 +36,148 @@ export default function FriendRequests({ refreshTrigger }: FriendRequestsProps) 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   const [lastNotificationCount, setLastNotificationCount] = useState(0);
-  const [isFetching, setIsFetching] = useState(false);
+  const isFetchingRef = useRef(false);
   const { notifications } = useSocket();
-  // Race guards
   const latestRequestSeq = useRef(0);
   const isMountedRef = useRef(true);
-  
-  // Debug logging
-  //console.log('🔍 FriendRequests render - friendRequests.length:', friendRequests.length, 'isLoading:', isLoading, 'isFetching:', isFetching, 'refreshTrigger:', refreshTrigger);
 
   /**
-   * Fetch pending friend requests on mount with slight delay to stagger API calls
+   * Fetch friend requests from API with retry logic
+   * @param mode - 'initial' shows loading spinner, 'refresh' shows pull-to-refresh indicator, 'silent' updates in background
    */
-  useEffect(() => {
-    console.log('FriendRequests mount effect triggered');
-    const timer = setTimeout(() => {
-      console.log('FriendRequests initial fetch timer fired');
-      // Bypass cache on first load to avoid stale empty results
-      fetchFriendRequests(true);
-    }, 1000); // 1 second delay to prevent rate limiting
-    
-    return () => {
-      console.log('🧹 FriendRequests cleanup - clearing timer and setting isMounted to false');
-      clearTimeout(timer);
-      isMountedRef.current = false;
-    };
+  type FetchMode = 'initial' | 'refresh' | 'silent';
+
+  const fetchFriendRequests = useCallback(async (mode: FetchMode = 'silent') => {
+    if (isFetchingRef.current) {
+      return;
+    }
+
+    try {
+      const mySeq = ++latestRequestSeq.current;
+      isFetchingRef.current = true;
+
+      if (mode === 'initial') {
+        setIsLoading(true);
+      } else if (mode === 'refresh') {
+        setIsRefreshing(true);
+      }
+
+      const response = await fetchWithRetry(
+        () => friendRequestsAPI.getPending(),
+        {
+          maxRetries: 3,
+          skipCache: true,
+        }
+      );
+
+      const pendingFromKnownShapes =
+        (response as any)?.pendingRequests ??
+        (response as any)?.data?.pendingRequests ??
+        (Array.isArray(response) ? response : undefined);
+
+      if (mySeq === latestRequestSeq.current && isMountedRef.current) {
+        const normalized = Array.isArray(pendingFromKnownShapes)
+          ? pendingFromKnownShapes
+          : (response as any)?.pendingRequests || [];
+
+        setFriendRequests(normalized);
+        apiCache.set('friend-requests', normalized);
+      }
+    } catch (error: any) {
+      console.error('❌ Failed to fetch friend requests:', error);
+      const status = error?.response?.status;
+
+      if (status === 429) {
+        Alert.alert('Too Many Requests', 'Please wait a moment before refreshing.');
+      } else if (mode === 'initial') {
+        Alert.alert('Error', error?.response?.data?.error || 'Failed to load friend requests');
+      }
+    } finally {
+      isFetchingRef.current = false;
+      if (isMountedRef.current) {
+        if (mode === 'initial') {
+          setIsLoading(false);
+        } else if (mode === 'refresh') {
+          setIsRefreshing(false);
+        }
+      }
+    }
   }, []);
 
   /**
-   * Refresh list when new friend request notification arrives
-   * Only triggers when a new friend_request notification is added
-   * Clears cache to ensure fresh data is fetched
-   * Debounced to prevent rapid successive fetches
+   * Hydrate from cache and fetch fresh data on mount
    */
   useEffect(() => {
-    console.log('FriendRequests notification effect - notifications.length:', notifications.length, 'lastNotificationCount:', lastNotificationCount);
+    isMountedRef.current = true;
+    const cached = apiCache.get<FriendRequest[]>('friend-requests');
+    if (cached) {
+      setFriendRequests(cached);
+      setIsLoading(false);
+    }
+    fetchFriendRequests(cached ? 'silent' : 'initial');
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [fetchFriendRequests]);
+
+  /**
+   * Refresh when new friend request notifications arrive (debounced)
+   */
+  useEffect(() => {
     const friendRequestNotifications = notifications.filter(
       (n) => n.type === 'friend_request'
     );
     
-    console.log('Friend request notifications:', friendRequestNotifications.length);
-    
-    // Only fetch if we have new notifications (count increased)
     if (friendRequestNotifications.length > lastNotificationCount) {
-      console.log(`Friend request notification count increased from ${lastNotificationCount} to ${friendRequestNotifications.length}`);
       setLastNotificationCount(friendRequestNotifications.length);
       
-      // Debounce the fetch to prevent rapid successive calls
       const timeoutId = setTimeout(() => {
-        console.log('Debounced friend request fetch triggered');
-        fetchFriendRequests(true);
-      }, 500); // 500ms debounce
+        apiCache.invalidate('friend-requests');
+        fetchFriendRequests('silent');
+      }, 500);
       
-      return () => {
-        console.log('🧹 FriendRequests notification cleanup - clearing debounce timer');
-        clearTimeout(timeoutId);
-      };
+      return () => clearTimeout(timeoutId);
     }
-  }, [notifications]);
+  }, [notifications, lastNotificationCount, fetchFriendRequests]);
 
   /**
-   * Respond to external refresh trigger without remounting
+   * Respond to external refresh trigger
    */
   useEffect(() => {
     if (refreshTrigger && refreshTrigger > 0) {
-      console.log('External refresh trigger received:', refreshTrigger);
-      fetchFriendRequests(true);
+      apiCache.invalidate('friend-requests');
+      fetchFriendRequests('refresh');
     }
-  }, [refreshTrigger]);
+  }, [refreshTrigger, fetchFriendRequests]);
 
   /**
-   * Fetch friend requests from API with retry logic
-   * Always ensures we show empty state even on API failures
-   */
-  const fetchFriendRequests = async (isRefresh = false) => {
-    console.log('fetchFriendRequests called - isRefresh:', isRefresh, 'isFetching:', isFetching, 'current friendRequests.length:', friendRequests.length);
-    
-    // Prevent multiple simultaneous fetches
-    if (isFetching) {
-      console.log('Friend requests fetch already in progress, skipping');
-      return;
-    }
-    
-    try {
-      const mySeq = ++latestRequestSeq.current;
-      console.log('Starting fetch with sequence:', mySeq, 'latestRequestSeq:', latestRequestSeq.current);
-      setIsFetching(true);
-      if (isRefresh) {
-        setIsRefreshing(true);
-      } else {
-        setIsLoading(true);
-      }
-      
-      console.log('Fetching friend requests from API...');
-      const response = await fetchWithRetry(
-        () => friendRequestsAPI.getPending(),
-        {
-          // Disable cache entirely for friend requests
-          maxRetries: 3,
-          skipCache: true
-        }
-      );
-      
-      console.log('📥 Friend requests response received:', response);
-      
-      // Be tolerant of different API shapes. Some backends may not include a
-      // `success` flag but still return the pending requests payload.
-      const pendingFromKnownShapes =
-        // preferred: { success, pendingRequests }
-        (response as any)?.pendingRequests ??
-        // axios-style: { data: { pendingRequests } }
-        (response as any)?.data?.pendingRequests ??
-        // raw array
-        (Array.isArray(response) ? response : undefined);
-
-      console.log('🔍 Processing response - mySeq:', mySeq, 'latestRequestSeq:', latestRequestSeq.current, 'isMounted:', isMountedRef.current);
-      console.log('🔍 pendingFromKnownShapes:', pendingFromKnownShapes);
-      
-      // TODO: Figure out what this is about... Why are my things not mounting correctly and always require reload??
-
-      if (mySeq === latestRequestSeq.current && isMountedRef.current) {
-        console.log('Response is latest and component is mounted, updating state');
-        if (Array.isArray(pendingFromKnownShapes)) {
-          console.log('Setting friendRequests from pendingFromKnownShapes:', pendingFromKnownShapes.length, 'items');
-          setFriendRequests(pendingFromKnownShapes);
-        } else if ((response as any)?.success) {
-          console.log('Setting friendRequests from response.pendingRequests:', (response as any)?.pendingRequests?.length || 0, 'items');
-          setFriendRequests((response as any)?.pendingRequests || []);
-        } else {
-          // Preserve current list if response shape is unexpected
-          console.log('⚠️ No pending requests found in response; preserving current list');
-        }
-      } else {
-        console.log('❌ Stale friend request response ignored - mySeq:', mySeq, 'latest:', latestRequestSeq.current, 'isMounted:', isMountedRef.current);
-      }
-    } catch (error: any) {
-      console.error('❌ Failed to fetch friend requests:', error);
-      console.log('❌ Error details - status:', error?.response?.status, 'isRefresh:', isRefresh);
-      // Preserve current list on error to avoid flicker
-      
-      const status = error?.response?.status;
-      if (status === 429) {
-        console.log('⚠️ Rate limited (429) - showing alert');
-        Alert.alert('Too Many Requests', 'Please wait a moment before refreshing.');
-      } else if (!isRefresh) {
-        console.log('⚠️ Non-429 error on initial load - showing alert');
-        // Only show error alert on initial load, not on refresh
-        Alert.alert('Error', error.response?.data?.error || 'Failed to load friend requests');
-      }
-    } finally {
-      console.log('🏁 fetchFriendRequests finally block - isMounted:', isMountedRef.current);
-      if (isMountedRef.current) {
-        console.log('✅ Updating loading states');
-        setIsFetching(false);
-        setIsLoading(false);
-        setIsRefreshing(false);
-      } else {
-        console.log('⚠️ Component unmounted, skipping state updates');
-      }
-    }
-  };
-
-  /**
-   * Handle manual refresh triggered by pull-to-refresh gesture
-   * Clears the cache to ensure fresh data is fetched from the API
+   * Handle manual pull-to-refresh
    */
   const handleRefresh = () => {
-    console.log('🔄 Manual refresh triggered');
-    fetchFriendRequests(true);
+    apiCache.invalidate('friend-requests');
+    fetchFriendRequests('refresh');
   };
 
   /**
    * Handle accepting a friend request
+   * Removes request from list and updates cache on success
    */
   const handleAcceptRequest = async (requestId: string) => {
-    console.log('✅ Accepting friend request:', requestId);
     try {
       setProcessingIds((prev) => new Set(prev).add(requestId));
       const response = await friendRequestsAPI.accept(requestId);
       
       if (response.success) {
-        console.log('✅ Friend request accepted, removing from list');
-        // Remove from list after successful accept
         setFriendRequests((prev) => {
           const newList = prev.filter((req) => req._id !== requestId);
-          console.log('📝 Updated friendRequests after accept:', newList.length, 'items');
+          apiCache.set('friend-requests', newList);
           return newList;
         });
         Alert.alert('Success', response.message || 'Friend request accepted!');
       }
     } catch (error: any) {
-      console.error('❌ Failed to accept friend request:', error);
+      console.error('Failed to accept friend request:', error);
       Alert.alert('Error', error.response?.data?.error || 'Failed to accept friend request');
     } finally {
       setProcessingIds((prev) => {
@@ -239,25 +190,23 @@ export default function FriendRequests({ refreshTrigger }: FriendRequestsProps) 
 
   /**
    * Handle rejecting a friend request
+   * Removes request from list and updates cache on success
    */
   const handleRejectRequest = async (requestId: string) => {
-    console.log('❌ Rejecting friend request:', requestId);
     try {
       setProcessingIds((prev) => new Set(prev).add(requestId));
       const response = await friendRequestsAPI.reject(requestId);
       
       if (response.success) {
-        console.log('✅ Friend request rejected, removing from list');
-        // Remove from list after successful reject
         setFriendRequests((prev) => {
           const newList = prev.filter((req) => req._id !== requestId);
-          console.log('📝 Updated friendRequests after reject:', newList.length, 'items');
+          apiCache.set('friend-requests', newList);
           return newList;
         });
         Alert.alert('Success', response.message || 'Friend request rejected');
       }
     } catch (error: any) {
-      console.error('❌ Failed to reject friend request:', error);
+      console.error('Failed to reject friend request:', error);
       Alert.alert('Error', error.response?.data?.error || 'Failed to reject friend request');
     } finally {
       setProcessingIds((prev) => {
@@ -347,51 +296,50 @@ export default function FriendRequests({ refreshTrigger }: FriendRequestsProps) 
           />
         }
       >
-        {friendRequests.map((request) => {
-          const isProcessing = processingIds.has(request._id);
-          
-          return (
-            <View key={request._id} style={styles.requestItem}>
-              {/* Profile and Info Section */}
-              <View style={styles.headerSection}>
-                <ProfileImage 
-                  displayName={request.from.profile.displayName} 
-                  avatar={request.from.profile.avatar} 
-                />
-                <View style={styles.headerInfo}>
-                  <Text style={styles.displayName}>
-                    {request.from.profile.displayName}
-                  </Text>
-                  <Text style={styles.email}>{request.from.email}</Text>
-                  {request.message && (
-                    <Text style={styles.message} numberOfLines={2}>
-                      "{request.message}"
-                    </Text>
-                  )}
-                </View>
-              </View>
-
-              {/* Action Buttons */}
-              <View style={styles.actionButtons}>
-                <RejectButton 
-                  onPress={() => handleRejectRequest(request._id)}
-                  disabled={isProcessing}
-                />
-                <AcceptButton 
-                  onPress={() => handleAcceptRequest(request._id)}
-                  disabled={isProcessing}
-                />
-              </View>
-            </View>
-          );
-        })}
-        
-        {/* Empty state if no friend requests */}
-        {(!friendRequests || friendRequests.length === 0) && !isLoading && (
+        {friendRequests.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateText}>No pending friend requests</Text>
-            <Text style={styles.emptyStateSubtext}>When someone sends you a friend request, it will appear here.</Text>
+            <Text style={styles.emptyStateSubtext}>
+              When someone sends you a friend request, it will appear here.
+            </Text>
           </View>
+        ) : (
+          friendRequests.map((request) => {
+            const isProcessing = processingIds.has(request._id);
+            
+            return (
+              <View key={request._id} style={styles.requestItem}>
+                <View style={styles.headerSection}>
+                  <ProfileImage 
+                    displayName={request.from.profile.displayName} 
+                    avatar={request.from.profile.avatar} 
+                  />
+                  <View style={styles.headerInfo}>
+                    <Text style={styles.displayName}>
+                      {request.from.profile.displayName}
+                    </Text>
+                    <Text style={styles.email}>{request.from.email}</Text>
+                    {request.message && (
+                      <Text style={styles.message} numberOfLines={2}>
+                        "{request.message}"
+                      </Text>
+                    )}
+                  </View>
+                </View>
+
+                <View style={styles.actionButtons}>
+                  <RejectButton 
+                    onPress={() => handleRejectRequest(request._id)}
+                    disabled={isProcessing}
+                  />
+                  <AcceptButton 
+                    onPress={() => handleAcceptRequest(request._id)}
+                    disabled={isProcessing}
+                  />
+                </View>
+              </View>
+            );
+          })
         )}
       </ScrollView>
     </View>
@@ -534,4 +482,3 @@ const styles = StyleSheet.create({
     color: '#666',
   },
 });
-

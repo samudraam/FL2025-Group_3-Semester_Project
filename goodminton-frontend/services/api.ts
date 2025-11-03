@@ -179,11 +179,23 @@ export const gamesAPI = {
   /**
    * Submit game results to the backend
    */
-  submitGame: async (gameData: {
-    opponentId: string;
-    scores: number[][];
-    winnerId: string;
-  }) => {
+  submitGame: async (
+    gameData:
+      | {
+          gameType: 'singles';
+          opponentId: string;
+          scores: number[][];
+          winnerId: string;
+        }
+      | {
+          gameType: 'doubles';
+          teammateId: string;
+          opponent1Id: string;
+          opponent2Id: string;
+          scores: number[][];
+          winnerTeam: 'teamA' | 'teamB';
+        }
+  ) => {
     const response = await api.post('/games', gameData);
     return response.data;
   },

@@ -9,11 +9,13 @@ import { fetchWithRetry } from '../services/apiHelpers';
  */
 interface Game {
     id: string;
-    date: string;
     time: string;
-    players: string[];
     scores: number[];
     result: 'win' | 'loss';
+    players?: string[];
+    teamA?: string;
+    teamB?: string;
+    winnerTeamDisplay?: string;
 }
 
 /**
@@ -71,6 +73,25 @@ export default function WeeklyCalendar({ refreshTrigger }: WeeklyCalendarProps) 
         });
 
         return grouped;
+    };
+
+    const getGamePlayerNames = (game: Game): string => {
+        if (Array.isArray(game.players) && game.players.length > 0) {
+            return game.players.join(' | ');
+        }
+
+        const teamLabels = [game.teamA, game.teamB]
+            .filter((name): name is string => typeof name === 'string' && name.trim().length > 0);
+
+        if (teamLabels.length === 2) {
+            return `${teamLabels[0]} vs ${teamLabels[1]}`;
+        }
+
+        if (teamLabels.length === 1) {
+            return teamLabels[0];
+        }
+
+        return 'Unknown players';
     };
 
     /**
@@ -266,7 +287,7 @@ export default function WeeklyCalendar({ refreshTrigger }: WeeklyCalendarProps) 
                                     <Text style={styles.gameTime}>{formatTime(game.time)}</Text>
                                     <View style={styles.gamePlayers}>
                                         <Text style={styles.playerNames}>
-                                            {game.players.join(' | ')}
+                                            {getGamePlayerNames(game)}
                                         </Text>
                                     </View>
                                     <View style={styles.scoreContainer}>

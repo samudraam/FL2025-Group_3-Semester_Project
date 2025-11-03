@@ -17,24 +17,23 @@ interface GameScore {
  * Game confirmation interface for type safety
  * Matches the structure from the backend API
  */
+interface GamePlayer {
+    _id: string;
+    profile?: {
+        displayName?: string;
+        avatar?: string;
+    };
+}
+
 interface GameConfirmation {
     _id: string;
-    players: Array<{
-        _id: string;
-        profile: {
-            displayName: string;
-            avatar?: string;
-        };
-    }>;
+    gameType: 'singles' | 'doubles';
+    teamA: GamePlayer[];
+    teamB: GamePlayer[];
     scores: number[][];
-    winner: {
-        _id: string;
-        profile: {
-            displayName: string;
-        };
-    };
+    winnerTeam: 'teamA' | 'teamB';
     createdAt: string;
-    status: string;
+    status?: string;
 }
 
 /**
@@ -292,12 +291,30 @@ export default function GameConfirmation({ refreshTrigger }: GameConfirmationPro
             >
                 {gameConfirmations.map((confirmation) => {
                     const isProcessing = processingIds.has(confirmation._id);
-                    const player1 = confirmation.players[0];
-                    const player2 = confirmation.players[1];
-                    
-                    // Calculate wins for each player
-                    const player1Wins = confirmation.scores.filter(score => score[0] > score[1]).length;
-                    const player2Wins = confirmation.scores.filter(score => score[1] > score[0]).length;
+                    const teamAPlayers = confirmation.teamA ?? [];
+                    const teamBPlayers = confirmation.teamB ?? [];
+                    const primaryPlayerA = teamAPlayers[0];
+                    const primaryPlayerB = teamBPlayers[0];
+
+                    if (!primaryPlayerA || !primaryPlayerB) {
+                        console.warn('Game confirmation skipped due to missing player data:', confirmation._id);
+                        return null;
+                    }
+
+                    const getTeamDisplayName = (team: GamePlayer[]) => {
+                        const names = team
+                            .map((player) => player.profile?.displayName)
+                            .filter((name): name is string => Boolean(name));
+                        return names.length > 0 ? names.join(' & ') : 'Unknown players';
+                    };
+
+                    const teamADisplayName = getTeamDisplayName(teamAPlayers);
+                    const teamBDisplayName = getTeamDisplayName(teamBPlayers);
+                    const primaryDisplayNameA = primaryPlayerA.profile?.displayName || 'Player A';
+
+                    // Calculate wins for each team
+                    const teamAWins = confirmation.scores.filter(score => score[0] > score[1]).length;
+                    const teamBWins = confirmation.scores.filter(score => score[1] > score[0]).length;
                     
                     // Format date
                     const date = new Date(confirmation.createdAt);
@@ -312,11 +329,11 @@ export default function GameConfirmation({ refreshTrigger }: GameConfirmationPro
                         {/* Header Section */}
                         <View style={styles.headerSection}>
                             <ProfileImage 
-                                username={player1.profile.displayName} 
-                                avatarUri={player1.profile.avatar} 
+                                username={primaryDisplayNameA} 
+                                avatarUri={primaryPlayerA.profile?.avatar} 
                             />
                             <View style={styles.headerInfo}>
-                                <Text style={styles.playerName}>{player1.profile.displayName}</Text>
+                                <Text style={styles.playerName}>{teamADisplayName}</Text>
                                 <Text style={styles.matchTime}>
                                     {formattedDate}
                                 </Text>
@@ -327,14 +344,14 @@ export default function GameConfirmation({ refreshTrigger }: GameConfirmationPro
                         <View style={styles.gameSummarySection}>
                             {/* Player 1 Score */}
                             <View style={styles.playerScoreSection}>
-                                <Text style={styles.playerName}>{player1.profile.displayName}</Text>
-                                <Text style={styles.totalScore}>{player1Wins}</Text>
+                                <Text style={styles.playerName}>{teamADisplayName}</Text>
+                                <Text style={styles.totalScore}>{teamAWins}</Text>
                             </View>
 
                             {/* Player 2 Score */}
                             <View style={styles.playerScoreSection}>
-                                <Text style={styles.playerName}>{player2.profile.displayName}</Text>
-                                <Text style={styles.totalScore}>{player2Wins}</Text>
+                                <Text style={styles.playerName}>{teamBDisplayName}</Text>
+                                <Text style={styles.totalScore}>{teamBWins}</Text>
                             </View>
                         </View>
 

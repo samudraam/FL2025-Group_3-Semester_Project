@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Alert } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import BottomNavPill from '../../components/BottomNavPill';
-import { HomeIcon, RankingsIcon, CommunityIcon, CourtsIcon } from '../../components/NavIcons';
+import { HomeIcon, RankingsIcon, CommunityIcon, CourtsIcon, PlayIcon } from '../../components/NavIcons';
 import { router } from 'expo-router';
 
 /**
@@ -24,7 +24,7 @@ export default function Courts() {
         latitudeDelta: 0.0922,
         longitudeDelta: 0.0421,
     };
-    
+
     /**
      * Get user's current location on component mount
      */
@@ -33,7 +33,7 @@ export default function Courts() {
             try {
                 // Request location permissions
                 const { status } = await Location.requestForegroundPermissionsAsync();
-                
+
                 if (status !== 'granted') {
                     setErrorMsg('Permission to access location was denied');
                     setLoading(false);
@@ -58,27 +58,31 @@ export default function Courts() {
      */
     const handleTabPress = (tabId: string) => {
         setActiveTab(tabId);
-        
+
         switch (tabId) {
-            case 'home':
-                router.replace('/tabs');
-                break;
             case 'rankings':
                 router.replace('/tabs/rankings');
                 break;
             case 'community':
                 router.replace('/tabs/community');
                 break;
+            case 'home':
+                router.replace('/tabs');
+                break;
             case 'courts':
                 router.replace('/tabs/courts');
+                break;
+            case 'play':
+                router.replace('/tabs/play');
                 break;
         }
     };
 
     const navItems = [
-        { id: 'home', label: 'home', icon: <HomeIcon /> },
-        { id: 'rankings', label: 'rankings', icon: <RankingsIcon /> },
         { id: 'community', label: 'community', icon: <CommunityIcon /> },
+        { id: 'rankings', label: 'rankings', icon: <RankingsIcon /> },
+        { id: 'home', label: 'home', icon: <HomeIcon /> },
+        { id: 'play', label: 'play', icon: <PlayIcon /> },
         { id: 'courts', label: 'courts', icon: <CourtsIcon /> },
     ];
 
@@ -135,8 +139,8 @@ export default function Courts() {
                     <Text style={styles.errorText}>{errorMsg}</Text>
                 </View>
             )}
-            
-            <BottomNavPill 
+
+            <BottomNavPill
                 items={navItems}
                 activeTab={activeTab}
                 onTabPress={handleTabPress}
@@ -152,7 +156,7 @@ const styles = StyleSheet.create({
     },
     map: {
         flex: 1,
-        marginBottom: -110, 
+        marginBottom: -110,
     },
     overlay: {
         position: 'absolute',

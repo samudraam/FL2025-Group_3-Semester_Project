@@ -4,7 +4,7 @@ import { useAuth } from '../../services/authContext';
 import { useSocket } from '../../services/socketContext';
 import { router } from 'expo-router';
 import BottomNavPill from '../../components/BottomNavPill';
-import { HomeIcon, RankingsIcon, CommunityIcon, CourtsIcon } from '../../components/NavIcons';
+import { HomeIcon, RankingsIcon, CommunityIcon, CourtsIcon, PlayIcon } from '../../components/NavIcons';
 import ProfileHeader from '../../components/ProfileHeader';
 import WeeklyCalendar from '../../components/WeeklyCalendar';
 import GameRequests from '../../components/GameRequests';
@@ -42,17 +42,17 @@ export default function Home() {
     const handleRefresh = async () => {
         console.log('🔄 Home pull-to-refresh triggered - clearing caches and triggering refresh');
         setIsRefreshing(true);
-        
+
         try {
             // Clear all relevant caches to force fresh data
             apiCache.invalidate('friend-requests');
             apiCache.invalidate('game-confirmations');
             apiCache.invalidate('weekly-games-calendar');
             apiCache.invalidate('leaderboard');
-            
+
             // Trigger refresh without remounting components
             setRefreshTrigger(prev => prev + 1);
-            
+
             // Add a small delay to show the refresh animation
             await new Promise(resolve => setTimeout(resolve, 1000));
         } finally {
@@ -65,20 +65,23 @@ export default function Home() {
      */
     const handleTabPress = (tabId: string) => {
         setActiveTab(tabId);
-        
+
         // Navigate to the appropriate screen
         switch (tabId) {
-            case 'home':
-                router.replace('/tabs');
-                break;
             case 'rankings':
                 router.replace('/tabs/rankings');
                 break;
             case 'community':
                 router.replace('/tabs/community');
                 break;
+            case 'home':
+                router.replace('/tabs');
+                break;
             case 'courts':
                 router.replace('/tabs/courts');
+                break;
+            case 'play':
+                router.replace('/tabs/play');
                 break;
         }
     };
@@ -88,9 +91,9 @@ export default function Home() {
      */
     const navItems = [
         {
-            id: 'home',
-            label: 'home',
-            icon: <HomeIcon />,
+            id: 'community',
+            label: 'community',
+            icon: <CommunityIcon />,
         },
         {
             id: 'rankings',
@@ -98,9 +101,14 @@ export default function Home() {
             icon: <RankingsIcon />,
         },
         {
-            id: 'community',
-            label: 'community',
-            icon: <CommunityIcon />,
+            id: 'home',
+            label: 'home',
+            icon: <HomeIcon />,
+        },
+        {
+            id: 'play',
+            label: 'play',
+            icon: <PlayIcon />,
         },
         {
             id: 'courts',
@@ -112,14 +120,14 @@ export default function Home() {
     return (
         <View style={styles.container}>
             {/* Fixed Profile Header */}
-            <ProfileHeader 
+            <ProfileHeader
                 username={user?.profile?.displayName || user?.email || "JSONderulo"}
                 onSettingsPress={handleSettingsPress}
                 onNotificationPress={handleNotificationPress}
             />
-            
+
             {/* Scrollable Content */}
-            <ScrollView 
+            <ScrollView
                 style={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContentContainer}
@@ -142,9 +150,9 @@ export default function Home() {
                     <GameRequests refreshTrigger={refreshTrigger} />
                 </View>
             </ScrollView>
-            
+
             {/* Custom Bottom Navigation Pill */}
-            <BottomNavPill 
+            <BottomNavPill
                 items={navItems}
                 activeTab={activeTab}
                 onTabPress={handleTabPress}

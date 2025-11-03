@@ -9,7 +9,7 @@ SERVICE=${1:-""}
 
 if [ -z "$SERVICE" ]; then
     echo "Showing logs for all services..."
-    echo "Usage: $0 [service_name] (mongodb|backend|frontend)"
+    echo "Usage: $0 [service_name] (mongodb|backend)"
     echo ""
     docker compose logs -f
 else

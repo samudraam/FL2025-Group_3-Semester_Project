@@ -40,7 +40,7 @@ export default function BottomNavPill({ items, activeTab, onTabPress }: BottomNa
                             <View style={s.iconContainer}>
                                 {isActive && item.activeIcon ? item.activeIcon : item.icon}
                             </View>
-                            <Text style={[
+                            <Text numberOfLines={1} style={[
                                 s.label,
                                 isActive && s.activeLabel
                             ]}>
@@ -94,7 +94,7 @@ const s = StyleSheet.create({
         justifyContent: 'center',
     },
     label: {
-        fontSize: 12,
+        fontSize: 11,
         fontFamily: 'DMSans_500Medium',
         color: '#0E5B37', // Dark green text
         textAlign: 'center',

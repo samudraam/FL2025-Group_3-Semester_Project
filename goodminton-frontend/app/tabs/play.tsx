@@ -1,37 +1,21 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useAuth } from '../../services/authContext';
 import BottomNavPill from '../../components/BottomNavPill';
 import { HomeIcon, RankingsIcon, CommunityIcon, CourtsIcon, PlayIcon } from '../../components/NavIcons';
-import ProfileHeader from '../../components/ProfileHeader';
-import Leaderboard from '../../components/Leaderboard';
 import { router } from 'expo-router';
+import ProfileHeader from '../../components/ProfileHeader';
+import AddFriend from '../../components/AddFriend';
+import FriendsList from '../../components/FriendsList';
 
-/**
- * Rankings screen - displays player rankings and leaderboards
- */
-export default function Rankings() {
+
+export default function Play() {
     const { user } = useAuth();
-    const [activeTab, setActiveTab] = useState('rankings');
+    const [activeTab, setActiveTab] = useState('play');
 
     /**
-     * Handle settings button press
-     */
-    const handleSettingsPress = () => {
-        console.log('Settings pressed');
-        // TODO: Navigate to settings screen
-    };
-
-    /**
-     * Handle notification bell press
-     */
-    const handleNotificationPress = () => {
-        console.log('Notifications pressed');
-        // TODO: Navigate to notifications screen
-    };
-
-    /**
-     * Handle navigation between tabs
+     * Handles navigation between tabs in the bottom navigation pill
+     * Updates the active tab state and navigates to the appropriate route
      */
     const handleTabPress = (tabId: string) => {
         setActiveTab(tabId);
@@ -55,6 +39,22 @@ export default function Rankings() {
         }
     };
 
+    /**
+     * Handles settings icon press
+     * Future implementation: Navigate to settings screen
+     */
+    const handleSettingsPress = () => {
+        console.log('Settings pressed');
+    };
+
+    /**
+     * Handles notification icon press
+     * Future implementation: Navigate to notifications screen
+     */
+    const handleNotificationPress = () => {
+        console.log('Notifications pressed');
+    };
+
     const navItems = [
         { id: 'community', label: 'community', icon: <CommunityIcon /> },
         { id: 'rankings', label: 'rankings', icon: <RankingsIcon /> },
@@ -65,26 +65,20 @@ export default function Rankings() {
 
     return (
         <View style={styles.container}>
-            {/* Fixed Profile Header */}
             <ProfileHeader
                 username={user?.profile?.displayName || user?.email || "JSONderulo"}
                 onSettingsPress={handleSettingsPress}
                 onNotificationPress={handleNotificationPress}
             />
 
-            {/* Scrollable Content */}
-            <ScrollView
-                style={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContentContainer}
-            >
-                <View style={styles.headerSection}>
-                    <Text style={styles.title}>Player Rankings</Text>
-                    <Text style={styles.subtitle}>See Your Friends Progress</Text>
+            <View style={styles.content}>
+                <View style={styles.titleContainer}>
+                    <Text style={styles.title}>Play</Text>
+                    <Text style={styles.subtitle}>Connect and Add Game</Text>
                 </View>
-
-                <Leaderboard />
-            </ScrollView>
+                <AddFriend />
+                <FriendsList />
+            </View>
 
             <BottomNavPill
                 items={navItems}
@@ -100,17 +94,17 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#f5f5f5',
     },
-    scrollContent: {
+    content: {
         flex: 1,
+        paddingTop: 0,
+        paddingBottom: 100,
     },
-    scrollContentContainer: {
-        paddingBottom: 120, // Space for bottom navigation
-    },
-    headerSection: {
-        paddingHorizontal: 20,
+    titleContainer: {
         backgroundColor: '#A8DADB',
-        paddingVertical: 20,
+        padding: 20,
+        width: '100%',
         alignItems: 'center',
+        marginBottom: 10,
     },
     title: {
         fontSize: 24,
@@ -122,6 +116,5 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontFamily: 'DMSans_400Regular',
         color: '#666',
-        textAlign: 'center',
     },
 });
