@@ -110,6 +110,7 @@ exports.getFriendsLeaderboard = async (req, res) => {
         displayName: p.profile.displayName,
         rating: p.ratings?.[discipline] || 1000, // 返回对应积分 (Return the relevant rating)
         gender: p.gender,
+        email: p.email,
       })),
     });
   } catch (error) {
@@ -646,7 +647,7 @@ exports.getFriendsLeaderboard = async (req, res) => {
     // 1. Find the current user and populate necessary info for their friends
     const currentUser = await User.findById(req.user.userId).populate(
       "friends",
-      "profile.displayName profile.points email" // 我们只需要好友的昵称、积分和邮箱
+      "profile.displayName ratings email profile.points email" // 我们只需要好友的昵称、积分和邮箱
     );
 
     if (!currentUser) {

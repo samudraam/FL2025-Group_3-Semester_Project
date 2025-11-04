@@ -80,10 +80,10 @@ export default function Rankings() {
             >
                 <View style={styles.headerSection}>
                     <Text style={styles.title}>Player Rankings</Text>
-                    <Text style={styles.subtitle}>See Your Friends Progress</Text>
+                    <Text style={styles.subtitle}>Singles Leaderboard</Text>
                 </View>
 
-                <Leaderboard />
+                <Leaderboard discipline="singles" />
             </ScrollView>
 
             <BottomNavPill

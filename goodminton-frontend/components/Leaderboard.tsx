@@ -7,23 +7,31 @@ import { apiCache } from '../services/apiCache';
 
 /**
  * Leaderboard entry interface
+ * Updated to match new ratings-based API response
  */
 interface LeaderboardEntry {
     _id: string;
-    email: string;
-    profile: {
-        displayName: string;
-        points: number;
-        fullName?: string;
-        avatar?: string;
+    displayName: string;
+    ratings?: {
+        singles: number;
+        doubles: number;
+        mixed: number;
     };
+    gender: string;
 }
 
 /**
- * Leaderboard component displays a ranked list of players with their points
- * Shows rank, username, and points in a clean table format
+ * Leaderboard props interface
  */
-export default function Leaderboard() {
+interface LeaderboardProps {
+    discipline?: 'singles' | 'doubles' | 'mixed';
+}
+
+/**
+ * Leaderboard component displays a ranked list of players with their ratings
+ * Shows rank, username, and rating for the selected discipline
+ */
+export default function Leaderboard({ discipline = 'singles' }: LeaderboardProps) {
     const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -40,9 +48,9 @@ export default function Leaderboard() {
             }
 
             const response = await fetchWithRetry(
-                () => usersAPI.getLeaderboard(),
+                () => usersAPI.getLeaderboard(discipline),
                 {
-                    cacheKey: 'leaderboard',
+                    cacheKey: `leaderboard-${discipline}`,
                     cacheTTL: 60000, // Cache for 1 minute
                     maxRetries: 3,
                     skipCache: isRefresh
@@ -50,7 +58,15 @@ export default function Leaderboard() {
             );
             
             if (response.success) {
-                setLeaderboard(response.leaderboard || []);
+                console.log('Leaderboard API response:', JSON.stringify(response, null, 2));
+                // Validate and normalize the leaderboard data
+                const validatedLeaderboard = (response.leaderboard || []).map((entry: any) => ({
+                    _id: entry._id,
+                    displayName: entry.displayName || entry.profile?.displayName || 'Unknown User',
+                    ratings: entry.ratings || { singles: 1000, doubles: 1000, mixed: 1000 },
+                    gender: entry.gender || 'unknown'
+                }));
+                setLeaderboard(validatedLeaderboard);
             } else {
                 console.error('Failed to fetch leaderboard:', response);
                 setLeaderboard([]);
@@ -76,7 +92,7 @@ export default function Leaderboard() {
      * Clears the cache to ensure fresh data is fetched from the API
      */
     const handleRefresh = () => {
-        apiCache.invalidate('leaderboard');
+        apiCache.invalidate(`leaderboard-${discipline}`);
         fetchLeaderboard(true);
     };
 
@@ -87,14 +103,14 @@ export default function Leaderboard() {
         router.push({
             pathname: '/tabs/profile-viewer',
             params: { 
-                userId: entry._id,
-                emailOrPhone: entry.email 
+                userId: entry._id
             }
         });
     };
 
     /**
-     * Fetch leaderboard on component mount with delay to stagger API calls
+     * Fetch leaderboard on component mount and when discipline changes
+     * Includes delay to prevent rate limiting
      */
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -102,20 +118,22 @@ export default function Leaderboard() {
         }, 2000); // 2 second delay to prevent rate limiting
         
         return () => clearTimeout(timer);
-    }, []);
+    }, [discipline]);
 
     /**
      * Render profile image or placeholder
      */
-    const ProfileImage = ({ displayName, avatarUri }: { displayName: string; avatarUri?: string }) => (
-        <View style={styles.profileImageContainer}>
-            {avatarUri ? (
-                <Text style={styles.profileInitial}>{displayName.charAt(0).toUpperCase()}</Text>
-            ) : (
-                <Text style={styles.profileInitial}>{displayName.charAt(0).toUpperCase()}</Text>
-            )}
-        </View>
-    );
+    const ProfileImage = ({ displayName }: { displayName?: string }) => {
+        const initial = displayName && displayName.length > 0 
+            ? displayName.charAt(0).toUpperCase() 
+            : '?';
+        
+        return (
+            <View style={styles.profileImageContainer}>
+                <Text style={styles.profileInitial}>{initial}</Text>
+            </View>
+        );
+    };
 
     if (isLoading) {
         return (
@@ -146,7 +164,7 @@ export default function Leaderboard() {
                 <View style={styles.tableHeader}>
                     <Text style={styles.headerText1}>RANK</Text>
                     <Text style={styles.headerText2}>USER</Text>
-                    <Text style={styles.headerText3}>POINTS</Text>
+                    <Text style={styles.headerText3}>RATING</Text>
                 </View>
                 
                 {/* Separator Line */}
@@ -174,18 +192,17 @@ export default function Leaderboard() {
                                 {/* User Column */}
                                 <View style={styles.userColumn}>
                                     <ProfileImage 
-                                        displayName={entry.profile.displayName}
-                                        avatarUri={entry.profile.avatar}
+                                        displayName={entry.displayName}
                                     />
                                     <Text style={[styles.userName, isTopThree && styles.topThreeUser]}>
-                                        {entry.profile.displayName}
+                                        {entry.displayName || 'Unknown User'}
                                     </Text>
                                 </View>
 
-                                {/* Points Column */}
+                                {/* Rating Column */}
                                 <View style={styles.pointsColumn}>
                                     <Text style={[styles.pointsText, isTopThree && styles.topThreePoints]}>
-                                        {entry.profile.points}
+                                        {entry.ratings?.[discipline]}
                                     </Text>
                                 </View>
                             </Pressable>

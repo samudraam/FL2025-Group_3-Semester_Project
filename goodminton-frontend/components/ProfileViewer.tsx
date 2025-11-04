@@ -16,6 +16,7 @@ import { usersAPI } from '../services/api';
 
 /**
  * User profile data interface
+ * Updated to match new backend schema with ratings system
  */
 interface UserProfile {
     _id: string;
@@ -23,13 +24,17 @@ interface UserProfile {
     profile: {
         displayName: string;
         fullName?: string;
-        points: number;
         avatar?: string;
         level?: string;
         gamesPlayed?: number;
         gamesWon?: number;
         gamesLost?: number;
         winRate?: number;
+    };
+    ratings: {
+        singles: number;
+        doubles: number;
+        mixed: number;
     };
 }
 
@@ -102,15 +107,19 @@ export default function ProfileViewer() {
                     _id: userData._id,
                     email: userData.email,
                     profile: {
-                        displayName: userData.profile.displayName,
-                        fullName: userData.profile.fullName,
-                        points: userData.profile.points,
-                        level: userData.profile.level,
-                        avatar: userData.profile.avatar,
-                        gamesPlayed: userData.stats.gamesPlayed,
-                        gamesWon: userData.stats.gamesWon,
-                        gamesLost: userData.stats.gamesPlayed - userData.stats.gamesWon,
-                        winRate: userData.stats.winRate
+                        displayName: userData.profile?.displayName || 'Unknown',
+                        fullName: userData.profile?.fullName,
+                        level: userData.profile?.level,
+                        avatar: userData.profile?.avatar,
+                        gamesPlayed: userData.stats?.gamesPlayed || 0,
+                        gamesWon: userData.stats?.gamesWon || 0,
+                        gamesLost: (userData.stats?.gamesPlayed || 0) - (userData.stats?.gamesWon || 0),
+                        winRate: userData.stats?.winRate || 0
+                    },
+                    ratings: {
+                        singles: userData.ratings?.singles || 1000,
+                        doubles: userData.ratings?.doubles || 1000,
+                        mixed: userData.ratings?.mixed || 1000
                     }
                 };
                 setProfile(transformedProfile);
@@ -306,12 +315,27 @@ export default function ProfileViewer() {
                 {/* Stats Cards */}
                 <View style={styles.statsContainer}>
                     <View style={styles.statCard}>
-                        <Text style={styles.statValue}>{profile.profile.points}</Text>
-                        <Text style={styles.statLabel}>Points</Text>
-                    </View>
-                    <View style={styles.statCard}>
                         <Text style={styles.statValue}>{Math.round(winRate)}%</Text>
                         <Text style={styles.statLabel}>Win Rate</Text>
+                    </View>
+                </View>
+
+                {/* Ratings Section */}
+                <View style={styles.ratingsSection}>
+                    <Text style={styles.sectionTitle}>Ratings</Text>
+                    <View style={styles.ratingsContainer}>
+                        <View style={styles.ratingCard}>
+                            <Text style={styles.ratingValue}>{profile.ratings.singles}</Text>
+                            <Text style={styles.ratingLabel}>Singles</Text>
+                        </View>
+                        <View style={styles.ratingCard}>
+                            <Text style={styles.ratingValue}>{profile.ratings.doubles}</Text>
+                            <Text style={styles.ratingLabel}>Doubles</Text>
+                        </View>
+                        <View style={styles.ratingCard}>
+                            <Text style={styles.ratingValue}>{profile.ratings.mixed}</Text>
+                            <Text style={styles.ratingLabel}>Mixed</Text>
+                        </View>
                     </View>
                 </View>
 
@@ -485,8 +509,9 @@ const styles = StyleSheet.create({
     },
     statsContainer: {
         flexDirection: 'row',
-        marginBottom: 30,
+        marginBottom: 20,
         gap: 16,
+        justifyContent: 'center',
     },
     statCard: {
         flex: 1,
@@ -496,6 +521,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#E8F5E8',
         alignItems: 'center',
+        maxWidth: 150,
     },
     statValue: {
         fontSize: 28,
@@ -507,6 +533,35 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontFamily: 'DMSans_600SemiBold',
         color: '#0E5B37',
+    },
+    ratingsSection: {
+        marginBottom: 30,
+    },
+    ratingsContainer: {
+        flexDirection: 'row',
+        gap: 12,
+        justifyContent: 'space-between',
+    },
+    ratingCard: {
+        flex: 1,
+        backgroundColor: 'white',
+        padding: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E8F5E8',
+        alignItems: 'center',
+    },
+    ratingValue: {
+        fontSize: 20,
+        fontFamily: 'DMSans_700Bold',
+        color: '#0E5B37',
+        marginBottom: 4,
+    },
+    ratingLabel: {
+        fontSize: 12,
+        fontFamily: 'DMSans_600SemiBold',
+        color: '#666',
+        textTransform: 'capitalize',
     },
     gameBreakdownSection: {
         marginBottom: 30,

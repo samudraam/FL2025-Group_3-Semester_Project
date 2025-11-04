@@ -6,6 +6,7 @@ import { useAuth } from '../services/authContext';
 
 /**
  * Interface for friend data structure
+ * Updated to use ratings system instead of single points value
  */
 interface Friend {
   id: string;
@@ -15,18 +16,22 @@ interface Friend {
   email?: string;
   avatar?: string;
   level?: string;
-  points?: number;
+  ratings?: {
+    singles: number;
+    doubles: number;
+    mixed: number;
+  };
   profile?: {
     displayName?: string;
     firstName?: string;
     lastName?: string;
     level?: string;
-    points?: number;
   };
 }
 
 /**
  * Interface for user data with friends
+ * Updated to use ratings system
  */
 interface UserWithFriends {
   id: string;
@@ -37,7 +42,11 @@ interface UserWithFriends {
     lastName?: string;
     avatar?: string;
     level: string;
-    points: number;
+  };
+  ratings?: {
+    singles: number;
+    doubles: number;
+    mixed: number;
   };
   friends?: Friend[];
 }
@@ -76,21 +85,20 @@ const getFriendDisplayName = (friend?: Friend | null): string => {
   );
 };
 
-const mapUserToFriend = (user: UserWithFriends['profile'] & { id: string; email: string }): Friend => ({
+const mapUserToFriend = (user: any): Friend => ({
   id: user.id,
-  displayName: user.displayName,
-  firstName: user.firstName,
-  lastName: user.lastName,
+  displayName: user.displayName || user.profile?.displayName,
+  firstName: user.firstName || user.profile?.firstName,
+  lastName: user.lastName || user.profile?.lastName,
   email: user.email,
-  avatar: user.avatar,
-  level: user.level,
-  points: user.points,
+  avatar: user.avatar || user.profile?.avatar,
+  level: user.level || user.profile?.level,
+  ratings: user.ratings || { singles: 1000, doubles: 1000, mixed: 1000 },
   profile: {
-    displayName: user.displayName,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    level: user.level,
-    points: user.points,
+    displayName: user.displayName || user.profile?.displayName,
+    firstName: user.firstName || user.profile?.firstName,
+    lastName: user.lastName || user.profile?.lastName,
+    level: user.level || user.profile?.level,
   },
 });
 
@@ -112,7 +120,7 @@ export default function FriendsList({ onRefresh }: FriendsListProps) {
       lastName: user.profile.lastName,
       avatar: user.profile.avatar,
       level: user.profile.level,
-      points: user.profile.points,
+      ratings: (user as any).ratings || { singles: 1000, doubles: 1000, mixed: 1000 },
     });
   }, [user]);
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -245,13 +253,12 @@ export default function FriendsList({ onRefresh }: FriendsListProps) {
       email: input.email,
       avatar: input.avatar || profile.avatar,
       level: input.level ?? profile.level,
-      points: input.points ?? profile.points,
+      ratings: input.ratings || { singles: 1000, doubles: 1000, mixed: 1000 },
       profile: {
         displayName: profile.displayName || input.displayName,
         firstName: profile.firstName || input.firstName,
         lastName: profile.lastName || input.lastName,
         level: profile.level ?? input.level,
-        points: profile.points ?? input.points,
       },
     };
   };

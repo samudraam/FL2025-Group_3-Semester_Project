@@ -229,9 +229,12 @@ export const gamesAPI = {
 export const usersAPI = {
   /**
    * Get leaderboard data
+   * @param discipline - The discipline to filter by (singles, doubles, or mixed)
    */
-  getLeaderboard: async () => {
-    const response = await api.get('/users/leaderboard');
+  getLeaderboard: async (discipline: 'singles' | 'doubles' | 'mixed' = 'singles') => {
+    const response = await api.get('/users/leaderboard', {
+      params: { discipline }
+    });
     return response.data;
   },
 
