@@ -40,15 +40,34 @@ app.use(
   })
 );
 
-// Rate limiting
-const limiter = rateLimit({
+// Rate limiting - Different limits for different use cases
+const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per 15 minutes
+  max: process.env.NODE_ENV === "development" ? 1000 : 500, // Higher limit in development
+  message: {
+    success: false,
+    error: "Too many requests, please try again later.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
-app.use(limiter);
+
+// Stricter rate limiting for authentication routes (prevent brute force)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // Limit auth attempts
+  message: {
+    success: false,
+    error: "Too many authentication attempts, please try again later.",
+  },
+  skipSuccessfulRequests: true, // Don't count successful requests
+});
+
+// Apply general rate limiter to all routes
+app.use(generalLimiter);
 
 // Routes
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", authLimiter, authRoutes); // Apply stricter rate limit to auth routes
 app.use("/api/users", userRoutes);
 app.use("/api/games", gameRoutes);
 app.use("/api/posts", postRoutes);

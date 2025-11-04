@@ -48,13 +48,17 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor to handle auth errors
+// Response interceptor to handle auth errors and rate limiting
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
       // Clear stored token on unauthorized
       await clearStoredToken();
+    } else if (error.response?.status === 429) {
+      // Rate limit exceeded - log a friendly message
+      console.warn('Rate limit exceeded. Please wait a moment before trying again.');
+      // Optionally, you can add exponential backoff retry logic here
     }
     return Promise.reject(error);
   }

@@ -30,8 +30,15 @@ export default function Messages() {
       } else {
         setConversations([]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to load conversations:", error);
+
+      // Handle rate limit errors specifically
+      if (error.response?.status === 429) {
+        console.warn("Rate limit exceeded. Please wait before refreshing.");
+        // You could show a toast notification here
+      }
+
       setConversations([]);
     } finally {
       setIsLoading(false);
