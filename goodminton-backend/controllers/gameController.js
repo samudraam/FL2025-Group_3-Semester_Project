@@ -5,7 +5,8 @@
 const mongoose = require("mongoose");
 const Game = require("../models/Game");
 const User = require("../models/User");
-const ratingService = require("../services/ratingService");
+const { calculateNewRatings } = require("../services/ratingService");
+// const ratingService = require("../services/ratingService");
 const socketService = require("../services/socketService");
 
 /**
