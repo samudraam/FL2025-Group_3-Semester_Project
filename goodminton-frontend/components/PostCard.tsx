@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   menuIcon: {
-    fontSize: 20,
+    fontSize: 25,
     color: '#666',
     fontWeight: 'bold',
   },
@@ -195,6 +195,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'DMSans_400Regular',
     color: '#666',
+    textAlign: 'right',
   },
   title: {
     fontSize: 16,

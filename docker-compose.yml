@@ -60,7 +60,7 @@ services:
       start_period: 30s
 
   # Frontend (Expo) DO I NEED THIS??
-  # According to prof, this does not need to be containerized since this is a emulator
+  # According to prof, this does not need to be containerized since this is running on a emulator. 
 
 
 volumes:

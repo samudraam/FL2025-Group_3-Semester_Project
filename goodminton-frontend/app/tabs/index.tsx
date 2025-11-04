@@ -19,12 +19,8 @@ export default function Home() {
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
-    /**
-     * Handle settings button press
-     */
     const handleSettingsPress = () => {
-        console.log('Settings pressed');
-        // TODO: Navigate to settings screen
+        router.push('/tabs/settings');
     };
 
     /**

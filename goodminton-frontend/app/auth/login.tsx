@@ -311,6 +311,7 @@ const s = StyleSheet.create({
         paddingVertical: 14,
         marginBottom: 12,
         fontSize: 16,
+        letterSpacing: 1,
         fontFamily: "DMSans_400Regular",
     },
     otpInput: {

@@ -1,5 +1,5 @@
 // MongoDB initialization script
-// This script runs for MongoDB setup
+// This script runs for MongoDB setup run docker compose up -d to start the container
 
 // Create the database and collections
 db = db.getSiblingDB("badmintonapp");

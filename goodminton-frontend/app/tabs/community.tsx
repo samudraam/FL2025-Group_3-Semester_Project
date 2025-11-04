@@ -1,13 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
-import { router } from 'expo-router';
-import { useAuth } from '../../services/authContext';
-import BottomNavPill from '../../components/BottomNavPill';
-import { HomeIcon, RankingsIcon, CommunityIcon, CourtsIcon, PlayIcon } from '../../components/NavIcons';
-import ProfileHeader from '../../components/ProfileHeader';
-import PostCard from '../../components/PostCard';
-import CreatePostModal from '../../components/CreatePostModal';
-import { postsAPI } from '../../services/api';
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  Pressable,
+  ActivityIndicator,
+  RefreshControl,
+} from "react-native";
+import { router } from "expo-router";
+import { useAuth } from "../../services/authContext";
+import BottomNavPill from "../../components/BottomNavPill";
+import {
+  HomeIcon,
+  RankingsIcon,
+  CommunityIcon,
+  CourtsIcon,
+  PlayIcon,
+} from "../../components/NavIcons";
+import ProfileHeader from "../../components/ProfileHeader";
+import PostCard from "../../components/PostCard";
+import CreatePostModal from "../../components/CreatePostModal";
+import { postsAPI } from "../../services/api";
 
 interface Post {
   _id: string;
@@ -28,7 +42,7 @@ interface Post {
 
 export default function Community() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('community');
+  const [activeTab, setActiveTab] = useState("community");
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -45,7 +59,7 @@ export default function Community() {
         setPosts(response.posts);
       }
     } catch (error) {
-      console.error('Failed to fetch posts:', error);
+      console.error("Failed to fetch posts:", error);
     } finally {
       setLoading(false);
     }
@@ -58,11 +72,11 @@ export default function Community() {
   };
 
   const handleSettingsPress = () => {
-    console.log('Settings pressed');
+    router.push("/tabs/settings");
   };
 
   const handleNotificationPress = () => {
-    console.log('Notifications pressed');
+    console.log("Notifications pressed");
   };
 
   const handleCreatePostPress = () => {
@@ -77,43 +91,45 @@ export default function Community() {
     setActiveTab(tabId);
 
     switch (tabId) {
-      case 'rankings':
-        router.replace('/tabs/rankings');
+      case "rankings":
+        router.replace("/tabs/rankings");
         break;
-      case 'community':
-        router.replace('/tabs/community');
+      case "community":
+        router.replace("/tabs/community");
         break;
-      case 'home':
-        router.replace('/tabs');
+      case "home":
+        router.replace("/tabs");
         break;
-      case 'courts':
-        router.replace('/tabs/courts');
+      case "courts":
+        router.replace("/tabs/courts");
         break;
-      case 'play':
-        router.replace('/tabs/play');
+      case "play":
+        router.replace("/tabs/play");
         break;
     }
   };
 
   const navItems = [
-    { id: 'community', label: 'community', icon: <CommunityIcon /> },
-    { id: 'rankings', label: 'rankings', icon: <RankingsIcon /> },
-    { id: 'home', label: 'home', icon: <HomeIcon /> },
-    { id: 'play', label: 'play', icon: <PlayIcon /> },
-    { id: 'courts', label: 'courts', icon: <CourtsIcon /> },
+    { id: "community", label: "community", icon: <CommunityIcon /> },
+    { id: "rankings", label: "rankings", icon: <RankingsIcon /> },
+    { id: "home", label: "home", icon: <HomeIcon /> },
+    { id: "play", label: "play", icon: <PlayIcon /> },
+    { id: "courts", label: "courts", icon: <CourtsIcon /> },
   ];
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <Text style={styles.emptyText}>No posts yet</Text>
-      <Text style={styles.emptySubtext}>Be the first to share something with the community!</Text>
+      <Text style={styles.emptySubtext}>
+        Be the first to share something with the community!
+      </Text>
     </View>
   );
 
   return (
     <View style={styles.container}>
       <ProfileHeader
-        username={user?.profile?.displayName || user?.email || 'JSONderulo'}
+        username={user?.profile?.displayName || user?.email || "JSONderulo"}
         onSettingsPress={handleSettingsPress}
         onNotificationPress={handleNotificationPress}
       />
@@ -152,7 +168,11 @@ export default function Community() {
         onPostCreated={handlePostCreated}
       />
 
-      <BottomNavPill items={navItems} activeTab={activeTab} onTabPress={handleTabPress} />
+      <BottomNavPill
+        items={navItems}
+        activeTab={activeTab}
+        onTabPress={handleTabPress}
+      />
     </View>
   );
 }
@@ -160,60 +180,60 @@ export default function Community() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
   },
   headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#A8DADB',
+    backgroundColor: "#A8DADB",
     marginBottom: 10,
   },
   title: {
     fontSize: 24,
-    fontFamily: 'DMSans_700Bold',
-    color: '#0E5B37',
+    fontFamily: "DMSans_700Bold",
+    color: "#0E5B37",
   },
   addButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#0E5B37',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#0E5B37",
+    alignItems: "center",
+    justifyContent: "center",
   },
   addButtonText: {
     fontSize: 28,
-    fontFamily: 'DMSans_400Regular',
-    color: '#FFFFFF',
+    fontFamily: "DMSans_400Regular",
+    color: "#FFFFFF",
     marginTop: -2,
   },
   loadingContainer: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   listContent: {
     paddingHorizontal: 20,
     paddingBottom: 100,
   },
   emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 60,
   },
   emptyText: {
     fontSize: 18,
-    fontFamily: 'DMSans_700Bold',
-    color: '#0E5B37',
+    fontFamily: "DMSans_700Bold",
+    color: "#0E5B37",
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
-    fontFamily: 'DMSans_400Regular',
-    color: '#666',
-    textAlign: 'center',
+    fontFamily: "DMSans_400Regular",
+    color: "#666",
+    textAlign: "center",
   },
 });

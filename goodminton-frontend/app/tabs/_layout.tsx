@@ -7,6 +7,7 @@ export default function TabLayout() {
             <Stack.Screen name="rankings" />
             <Stack.Screen name="community" />
             <Stack.Screen name="courts" />
+            <Stack.Screen name="settings" />
             <Stack.Screen 
                 name="profile-viewer" 
                 options={{ 

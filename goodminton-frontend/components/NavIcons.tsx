@@ -82,6 +82,17 @@ export const BellIcon = ({ size = 30, color = '#F5A623' }: { size?: number; colo
     />
 );
 
+/**
+ * Message icon
+ */
+export const MessageIcon = ({ size = 30, color = '#0E5B37' }: { size?: number; color?: string }) => (
+    <Image 
+        source={require('../assets/message.png')} 
+        style={{ width: size, height: size }}
+        resizeMode="contain"
+    />
+);
+
 const s = StyleSheet.create({
     icon: {
         alignItems: 'center',
