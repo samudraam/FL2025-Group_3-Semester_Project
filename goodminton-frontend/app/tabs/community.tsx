@@ -75,6 +75,10 @@ export default function Community() {
     router.push("/tabs/settings");
   };
 
+  const handleMessagePress = () => {
+    router.push("/chat/messages");
+  };
+
   const handleNotificationPress = () => {
     console.log("Notifications pressed");
   };
@@ -132,6 +136,7 @@ export default function Community() {
         username={user?.profile?.displayName || user?.email || "JSONderulo"}
         onSettingsPress={handleSettingsPress}
         onNotificationPress={handleNotificationPress}
+        onMessagePress={handleMessagePress}
       />
 
       <View style={styles.headerRow}>

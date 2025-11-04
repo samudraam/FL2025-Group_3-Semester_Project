@@ -252,10 +252,10 @@ exports.createUser = async (req, res) => {
       success: true,
       message: "User created successfully",
       user: {
-        id: user._id,
-        email: user.email,
-        gender: user.gender,
-        profile: user.profile,
+        id: newUser._id,
+        email: newUser.email,
+        gender: newUser.gender,
+        profile: newUser.profile,
       },
     });
   } catch (error) {

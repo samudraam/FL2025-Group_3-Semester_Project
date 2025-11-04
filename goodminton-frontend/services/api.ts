@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001/api';
 
+// Summary: This file contains the API functions for the app. It uses axios to make the API calls and AsyncStorage to store the authentication token. It also uses the apiHelpers file to handle the caching and retries.
 /**
  * Global request queue to prevent rate limiting across all API calls
  */
@@ -301,6 +302,62 @@ export const postsAPI = {
    */
   getPostById: async (postId: string) => {
     const response = await api.get(`/posts/${postId}`);
+    return response.data;
+  },
+};
+
+export interface Conversation {
+  _id: string;
+  otherUser: {
+    _id: string;
+    displayName: string;
+    avatar?: string;
+    email: string;
+  };
+  lastMessage?: any;
+  lastMessageAt: Date;
+}
+
+export interface Message {
+  _id: string;
+  sender: {
+    _id: string;
+    displayName: string;
+    avatar?: string;
+    email: string;
+  };
+  recipient: string;
+  content: string;
+  createdAt: string;
+}
+
+export const chatAPI = {
+  /**
+   * Get all conversations for the current user
+   */
+  getConversations: async (): Promise<{ success: boolean; conversations: Conversation[] }> => {
+    const response = await api.get('/chat/conversations');
+    return response.data;
+  },
+
+  /**
+   * Get message history with a specific user
+   */
+  getMessages: async (userId: string, page: number = 1, limit: number = 50): Promise<{ success: boolean; messages: Message[]; pagination: any }> => {
+    const response = await api.get(`/chat/messages/${userId}`, {
+      params: { page, limit }
+    });
+    return response.data;
+  },
+
+  /**
+   * Send a message to another user
+   */
+  sendMessage: async (recipientId: string, content: string): Promise<{ success: boolean; message: Message }> => {
+    const response = await api.post('/chat/messages', {
+      recipientId,
+      content
+    });
     return response.data;
   },
 };

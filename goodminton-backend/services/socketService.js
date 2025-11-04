@@ -145,6 +145,93 @@ class SocketService {
       }
     });
 
+    // Handle chat events
+    socket.on("chat:send", async (data) => {
+      try {
+        const { recipientId, content } = data;
+        const senderId = socket.userId;
+
+        if (!recipientId || !content || !content.trim()) {
+          return socket.emit("error", {
+            message: "Invalid message data",
+          });
+        }
+
+        if (recipientId === senderId) {
+          return socket.emit("error", {
+            message: "Cannot send message to yourself",
+          });
+        }
+
+        const User = require("../models/User");
+        const Message = require("../models/Message");
+        const Conversation = require("../models/Conversation");
+
+        const recipient = await User.findById(recipientId);
+        if (!recipient) {
+          return socket.emit("error", {
+            message: "Recipient not found",
+          });
+        }
+
+        const message = await Message.create({
+          sender: senderId,
+          recipient: recipientId,
+          content: content.trim(),
+        });
+
+        await message.populate(
+          "sender",
+          "profile.displayName profile.avatar email"
+        );
+
+        const conversation = await Conversation.findOrCreateConversation(
+          senderId,
+          recipientId
+        );
+
+        conversation.lastMessage = message._id;
+        conversation.lastMessageAt = message.createdAt;
+        await conversation.save();
+
+        this.notifyUser(recipientId, "chat:message:received", {
+          messageId: message._id,
+          sender: {
+            _id: message.sender._id,
+            displayName: message.sender.profile.displayName,
+            avatar: message.sender.profile.avatar,
+            email: message.sender.email,
+          },
+          content: message.content,
+          createdAt: message.createdAt,
+        });
+
+        socket.emit("chat:message:sent", {
+          messageId: message._id,
+          createdAt: message.createdAt,
+        });
+      } catch (error) {
+        console.error("Chat send error:", error);
+        socket.emit("error", {
+          message: "Failed to send message",
+        });
+      }
+    });
+
+    socket.on("chat:typing", (data) => {
+      try {
+        const { recipientId, isTyping } = data;
+        if (recipientId) {
+          this.notifyUser(recipientId, "chat:typing", {
+            senderId: socket.userId,
+            isTyping,
+          });
+        }
+      } catch (error) {
+        console.error("Chat typing error:", error);
+      }
+    });
+
     // Handle ping/pong for connection health
     socket.on("ping", () => {
       socket.emit("pong", { timestamp: new Date().toISOString() });

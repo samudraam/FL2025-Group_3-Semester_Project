@@ -63,6 +63,10 @@ export default function Play() {
     { id: "play", label: "play", icon: <PlayIcon /> },
     { id: "courts", label: "courts", icon: <CourtsIcon /> },
   ];
+  
+  const handleMessagePress = () => {
+    router.push("/chat/messages");
+  };
 
   return (
     <View style={styles.container}>
@@ -70,6 +74,7 @@ export default function Play() {
         username={user?.profile?.displayName || user?.email || "JSONderulo"}
         onSettingsPress={handleSettingsPress}
         onNotificationPress={handleNotificationPress}
+        onMessagePress={handleMessagePress}
       />
 
       <View style={styles.content}>

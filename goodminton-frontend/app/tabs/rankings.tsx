@@ -65,13 +65,17 @@ export default function Rankings() {
     { id: "courts", label: "courts", icon: <CourtsIcon /> },
   ];
 
+  const handleMessagePress = () => {
+    router.push("/chat/messages");
+  };
+
   return (
     <View style={styles.container}>
-      {/* Fixed Profile Header */}
       <ProfileHeader
-        username={user?.profile?.displayName || user?.email || "JSONderulo"}
+        username={user?.profile?.displayName || user?.email}
         onSettingsPress={handleSettingsPress}
         onNotificationPress={handleNotificationPress}
+        onMessagePress={handleMessagePress}
       />
 
       {/* Scrollable Content */}
