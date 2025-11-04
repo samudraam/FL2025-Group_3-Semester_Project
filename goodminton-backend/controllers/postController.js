@@ -29,7 +29,10 @@ exports.createPost = async (req, res) => {
     });
 
     // 填充作者信息以便立即返回给前端
-    await newPost.populate("author", "profile.displayName profile.avatar");
+    await newPost.populate(
+      "author",
+      "email profile.displayName profile.avatar"
+    );
 
     res.status(201).json({
       success: true,
@@ -53,7 +56,7 @@ exports.getAllPosts = async (req, res) => {
   try {
     // 查找所有帖子，按最新创建的排序
     const posts = await Post.find()
-      .populate("author", "profile.displayName profile.avatar") // 填充作者的昵称和头像
+      .populate("author", "email profile.displayName profile.avatar") // 填充作者的昵称和头像
       .sort({ createdAt: -1 }) // 按创建时间降序
       .limit(50); // 限制最近的50条
 
@@ -76,7 +79,7 @@ exports.getPostById = async (req, res) => {
     const postId = req.params.id;
     const post = await Post.findById(postId).populate(
       "author",
-      "profile.displayName profile.avatar"
+      "email profile.displayName profile.avatar"
     );
 
     if (!post) {

@@ -274,4 +274,35 @@ export const usersAPI = {
   },
 };
 
+// Posts API functions
+export const postsAPI = {
+  /**
+   * Get all posts from the community feed
+   */
+  getAllPosts: async () => {
+    const response = await api.get('/posts');
+    return response.data;
+  },
+
+  /**
+   * Create a new post
+   */
+  createPost: async (postData: {
+    title: string;
+    description: string;
+    location?: string;
+  }) => {
+    const response = await api.post('/posts', postData);
+    return response.data;
+  },
+
+  /**
+   * Get a specific post by ID
+   */
+  getPostById: async (postId: string) => {
+    const response = await api.get(`/posts/${postId}`);
+    return response.data;
+  },
+};
+
 export default api;

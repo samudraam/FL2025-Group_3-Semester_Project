@@ -103,7 +103,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#A8DADB',
         padding: 20,
         width: '100%',
-        alignItems: 'center',
         marginBottom: 10,
     },
     title: {

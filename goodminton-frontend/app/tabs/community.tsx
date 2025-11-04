@@ -1,14 +1,61 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../services/authContext';
 import BottomNavPill from '../../components/BottomNavPill';
 import { HomeIcon, RankingsIcon, CommunityIcon, CourtsIcon, PlayIcon } from '../../components/NavIcons';
 import ProfileHeader from '../../components/ProfileHeader';
+import PostCard from '../../components/PostCard';
+import CreatePostModal from '../../components/CreatePostModal';
+import { postsAPI } from '../../services/api';
+
+interface Post {
+  _id: string;
+  title: string;
+  description: string;
+  location?: string;
+  author: {
+    _id: string;
+    profile: {
+      displayName: string;
+      avatar?: string;
+    };
+    email: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
 
 export default function Community() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('community');
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
+  const fetchPosts = async () => {
+    try {
+      const response = await postsAPI.getAllPosts();
+      if (response.success && response.posts) {
+        setPosts(response.posts);
+      }
+    } catch (error) {
+      console.error('Failed to fetch posts:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchPosts();
+    setRefreshing(false);
+  };
 
   const handleSettingsPress = () => {
     console.log('Settings pressed');
@@ -16,6 +63,14 @@ export default function Community() {
 
   const handleNotificationPress = () => {
     console.log('Notifications pressed');
+  };
+
+  const handleCreatePostPress = () => {
+    setModalVisible(true);
+  };
+
+  const handlePostCreated = () => {
+    fetchPosts();
   };
 
   const handleTabPress = (tabId: string) => {
@@ -48,6 +103,13 @@ export default function Community() {
     { id: 'courts', label: 'courts', icon: <CourtsIcon /> },
   ];
 
+  const renderEmptyState = () => (
+    <View style={styles.emptyContainer}>
+      <Text style={styles.emptyText}>No posts yet</Text>
+      <Text style={styles.emptySubtext}>Be the first to share something with the community!</Text>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       <ProfileHeader
@@ -56,12 +118,39 @@ export default function Community() {
         onNotificationPress={handleNotificationPress}
       />
 
-      <View style={styles.content}>
+      <View style={styles.headerRow}>
         <Text style={styles.title}>Community</Text>
-        <View style={styles.placeholder}>
-          <Text style={styles.placeholderText}>Coming soon</Text>
-        </View>
+        <Pressable style={styles.addButton} onPress={handleCreatePostPress}>
+          <Text style={styles.addButtonText}>+</Text>
+        </Pressable>
       </View>
+
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#0E5B37" />
+        </View>
+      ) : (
+        <FlatList
+          data={posts}
+          renderItem={({ item }) => <PostCard post={item} />}
+          keyExtractor={(item) => item._id}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={renderEmptyState}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor="#0E5B37"
+            />
+          }
+        />
+      )}
+
+      <CreatePostModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        onPostCreated={handlePostCreated}
+      />
 
       <BottomNavPill items={navItems} activeTab={activeTab} onTabPress={handleTabPress} />
     </View>
@@ -73,29 +162,58 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  content: {
-    flex: 1,
+  headerRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#A8DADB',
+    marginBottom: 10,
   },
   title: {
     fontSize: 24,
     fontFamily: 'DMSans_700Bold',
     color: '#0E5B37',
-    marginBottom: 12,
   },
-  placeholder: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingVertical: 32,
-    paddingHorizontal: 40,
-    borderWidth: 1,
-    borderColor: '#E3F2FD',
+  addButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#0E5B37',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  placeholderText: {
+  addButtonText: {
+    fontSize: 28,
+    fontFamily: 'DMSans_400Regular',
+    color: '#FFFFFF',
+    marginTop: -2,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 100,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
     fontSize: 18,
-    fontFamily: 'DMSans_500Medium',
-    color: '#666666',
+    fontFamily: 'DMSans_700Bold',
+    color: '#0E5B37',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    fontFamily: 'DMSans_400Regular',
+    color: '#666',
+    textAlign: 'center',
   },
 });
