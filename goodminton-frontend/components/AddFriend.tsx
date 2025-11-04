@@ -30,7 +30,7 @@ export default function AddFriend() {
   const handleSearch = async () => {
     const trimmed = query.trim();
     if (!trimmed) {
-      Alert.alert('Enter email or phone');
+      Alert.alert('Enter email/phone/username');
       return;
     }
 
@@ -66,7 +66,7 @@ export default function AddFriend() {
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="search by email or phone"
+          placeholder="search by email/phone/username"
           placeholderTextColor="#949494"
           autoCapitalize="none"
           keyboardType="email-address"
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     fontSize: 14,
     fontFamily: 'DMSans_400Regular',
-    letterSpacing: 2,
+    letterSpacing: 1,
     color: '#333333',
   },
   searchButton: {

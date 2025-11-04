@@ -74,7 +74,6 @@ export default function Play() {
             <View style={styles.content}>
                 <View style={styles.titleContainer}>
                     <Text style={styles.title}>Play</Text>
-                    <Text style={styles.subtitle}>Connect and Add Game</Text>
                 </View>
                 <AddFriend />
                 <FriendsList />
@@ -109,11 +108,6 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontFamily: 'DMSans_700Bold',
         color: '#0E5B37',
-        marginBottom: 8,
-    },
-    subtitle: {
-        fontSize: 16,
-        fontFamily: 'DMSans_400Regular',
-        color: '#666',
+        textAlign: 'center',
     },
 });

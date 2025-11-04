@@ -80,7 +80,6 @@ export default function Rankings() {
             >
                 <View style={styles.headerSection}>
                     <Text style={styles.title}>Player Rankings</Text>
-                    <Text style={styles.subtitle}>Singles Leaderboard</Text>
                 </View>
 
                 <Leaderboard discipline="singles" />
@@ -109,19 +108,13 @@ const styles = StyleSheet.create({
     headerSection: {
         paddingHorizontal: 20,
         backgroundColor: '#A8DADB',
-        paddingVertical: 20,
-        alignItems: 'center',
+        paddingVertical: 16,
+        marginBottom: 8,
     },
     title: {
         fontSize: 24,
         fontFamily: 'DMSans_700Bold',
         color: '#0E5B37',
-        marginBottom: 8,
-    },
-    subtitle: {
-        fontSize: 16,
-        fontFamily: 'DMSans_400Regular',
-        color: '#666',
         textAlign: 'center',
     },
 });
