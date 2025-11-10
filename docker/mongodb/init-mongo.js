@@ -11,6 +11,8 @@ db.createCollection("friendrequests");
 db.createCollection("authtokens");
 db.createCollection("messages");
 db.createCollection("conversations");
+db.createCollection("courtratings");
+db.createCollection("courts");
 
 // Drop any existing indexes first
 try {
@@ -28,6 +30,11 @@ db.games.createIndex({ players: 1 });
 db.friendrequests.createIndex({ from: 1, to: 1 });
 db.authtokens.createIndex({ token: 1 }, { unique: true });
 db.authtokens.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+db.courts.createIndex({ location: "2dsphere" });
+db.courts.createIndex({ name: 1 });
+db.courtratings.createIndex({ courtId: 1 });
+db.courtratings.createIndex({ userId: 1 });
+db.courtratings.createIndex({ courtId: 1, userId: 1 }, { unique: true });
 
 // ADD THESE MESSAGE INDEXES
 db.messages.createIndex({ sender: 1, recipient: 1, createdAt: -1 });

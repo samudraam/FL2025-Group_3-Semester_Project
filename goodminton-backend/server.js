@@ -12,6 +12,7 @@ const userRoutes = require("./routes/user");
 const gameRoutes = require("./routes/games");
 const postRoutes = require("./routes/post");
 const chatRoutes = require("./routes/chat");
+const courtsRoutes = require("./routes/courts");
 const socketService = require("./services/socketService");
 
 // Initialize Express application
@@ -72,6 +73,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/games", gameRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/courts", courtsRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
