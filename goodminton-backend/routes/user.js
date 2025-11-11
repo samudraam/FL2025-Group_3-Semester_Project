@@ -10,9 +10,9 @@ const { authenticateToken } = require("../middleware/auth");
 // --- 更新后的好友排行榜路由 ---
 // --- Updated Friend Leaderboard Route ---
 
-// @route   GET /api/users/leaderboard?discipline=singles|doubles|mixed
-// @desc    获取好友排行榜 (可按项目筛选)
-// (Get the friend leaderboard - can filter by discipline)
+// @route   GET /api/users/leaderboard?discipline=singles&gender=male
+// @desc    获取好友排行榜 (可按项目和性别筛选)
+// (Get the friend leaderboard - can filter by discipline and gender)
 // @access  Private
 router.get(
   "/leaderboard",
