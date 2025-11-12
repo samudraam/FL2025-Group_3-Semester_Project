@@ -1,0 +1,126 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: badminton
+---
+#these secrets are like fake secrets so i dont care to hide them because theyre pretty general for now
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mongo-root-secret
+  namespace: badminton
+type: Opaque
+stringData:
+  username: admin
+  password: password123
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: project-draft-db
+  namespace: badminton
+spec:
+  clusterIP: None
+  selector:
+    app: project-draft-db
+  ports:
+    - port: 27017
+      targetPort: 27017
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: project-draft-db
+  namespace: badminton
+spec:
+  serviceName: project-draft-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: project-draft-db
+  template:
+    metadata:
+      labels:
+        app: project-draft-db
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo:7.0
+          ports:
+            - containerPort: 27017
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-root-secret
+                  key: username
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-root-secret
+                  key: password
+            - name: MONGO_INITDB_DATABASE
+              value: badmintonapp
+          volumeMounts:
+            - name: mongo-data
+              mountPath: /data/db
+  volumeClaimTemplates:
+    - metadata:
+        name: mongo-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: badminton-backend
+  namespace: badminton
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: badminton-backend
+  template:
+    metadata:
+      labels:
+        app: badminton-backend
+    spec:
+      containers:
+        - name: backend
+          image: samudraam/badminton-backend:v1
+          ports:
+            - containerPort: 3001
+          env:
+            - name: NODE_ENV
+              value: development
+            - name: PORT
+              value: "3001"
+            - name: CLIENT_URL
+              value: http://localhost:19006
+            - name: SERVER_URL
+              value: http://badminton-backend.badminton.svc.cluster.local:3001
+            - name: JWT_SECRET
+              value: goodmintonJWT
+            - name: JWT_EXPIRES_IN
+              value: 7d
+            - name: EMAIL_SERVICE
+              value: SendGrid
+            - name: MONGODB_URI
+              value: mongodb://admin:password123@project-draft-db:27017/badmintonapp?authSource=admin
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: badminton-backend
+  namespace: badminton
+spec:
+  type: NodePort
+  selector:
+    app: badminton-backend
+  ports:
+    - port: 3001
+      targetPort: 3001
+      nodePort: 32001
