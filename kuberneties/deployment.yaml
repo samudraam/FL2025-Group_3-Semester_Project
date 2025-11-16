@@ -1,8 +1,10 @@
+#namespace
 apiVersion: v1
 kind: Namespace
 metadata:
   name: badminton
 ---
+#secrets
 #these secrets are like fake secrets so i dont care to hide them because theyre pretty general for now
 apiVersion: v1
 kind: Secret
@@ -14,6 +16,7 @@ stringData:
   username: admin
   password: password123
 ---
+#service for mongodb
 apiVersion: v1
 kind: Service
 metadata:
@@ -27,6 +30,7 @@ spec:
     - port: 27017
       targetPort: 27017
 ---
+#statefulset
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -73,6 +77,7 @@ spec:
           requests:
             storage: 1Gi
 ---
+#deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -111,6 +116,7 @@ spec:
             - name: MONGODB_URI
               value: mongodb://admin:password123@project-draft-db:27017/badmintonapp?authSource=admin
 ---
+#service for backend
 apiVersion: v1
 kind: Service
 metadata:

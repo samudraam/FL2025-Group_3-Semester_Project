@@ -58,7 +58,6 @@ api.interceptors.response.use(
     } else if (error.response?.status === 429) {
       // Rate limit exceeded - log a friendly message
       console.warn('Rate limit exceeded. Please wait a moment before trying again.');
-      // Optionally, you can add exponential backoff retry logic here
     }
     return Promise.reject(error);
   }
