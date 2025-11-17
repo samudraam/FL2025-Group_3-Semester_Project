@@ -345,7 +345,15 @@ export default function WeeklyCalendar({
                       : Math.max(teamAWins, teamBWins);
 
                   return (
-                    <View key={game.id} style={styles.gameItem}>
+                    <View
+                      key={game.id}
+                      style={[
+                        styles.gameItem,
+                        game.result === "win"
+                          ? styles.gameItemWin
+                          : styles.gameItemLoss,
+                      ]}
+                    >
                       <Text style={styles.gameTime}>
                         {formatTime(game.time)}
                       </Text>
@@ -456,7 +464,7 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans_600SemiBold",
   },
   gameDetailsContainer: {
-    backgroundColor: "#E0E0E0",
+    backgroundColor: "rgb(255, 207, 117)",
     borderBottomLeftRadius: 12,
     borderBottomRightRadius: 12,
     padding: 14,
@@ -480,10 +488,19 @@ const styles = StyleSheet.create({
     maxHeight: 200,
   },
   gameItem: {
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    backgroundColor: "rgba(255, 255, 255)",
     borderRadius: 8,
+    borderWidth: 3,
     padding: 12,
     marginBottom: 8,
+  },
+  gameItemWin: {
+    borderColor: "rgba(116, 255, 120)",
+    borderWidth: 3,
+  },
+  gameItemLoss: {
+    borderColor: "rgba(246, 152, 152)",
+    borderWidth: 3,
   },
   gameTime: {
     fontSize: 13,

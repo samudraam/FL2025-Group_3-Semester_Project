@@ -1,34 +1,30 @@
 /**
  * @file controllers/postController.js
- * @description 帖子相关的业务逻辑控制器 (Controller for post-related business logic)
+ * @description Controller for post-related business logic
  */
 const Post = require("../models/Post");
 const User = require("../models/User");
 
 /**
- * 创建一个新帖子
  * Create a new post
  */
 exports.createPost = async (req, res) => {
   try {
     const { title, description } = req.body;
-    const authorId = req.user.userId; // 从 auth 中间件获取
+    const authorId = req.user.userId; 
 
-    // 基础验证
     if (!title || !description) {
       return res
         .status(400)
         .json({ success: false, error: "Title and description are required." });
     }
 
-    // 创建帖子
     const newPost = await Post.create({
       title,
       description,
       author: authorId,
     });
 
-    // 填充作者信息以便立即返回给前端
     await newPost.populate(
       "author",
       "email profile.displayName profile.avatar"
@@ -49,7 +45,6 @@ exports.createPost = async (req, res) => {
 };
 
 /**
- * 获取所有帖子 (公开)
  * Get all posts (Public)
  */
 exports.getAllPosts = async (req, res) => {
@@ -71,7 +66,6 @@ exports.getAllPosts = async (req, res) => {
 };
 
 /**
- * 获取单个帖子的详情 (公开)
  * Get details for a single post (Public)
  */
 exports.getPostById = async (req, res) => {
@@ -93,5 +87,85 @@ exports.getPostById = async (req, res) => {
   } catch (error) {
     console.error("Get post by ID error:", error);
     res.status(500).json({ success: false, error: "Failed to fetch post." });
+  }
+};
+
+/**
+ * Update a post (Owner only)
+ */
+exports.updatePost = async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const userId = req.user.userId; 
+    const { title, description } = req.body;
+
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      return res.status(404).json({ success: false, error: "Post not found." });
+    }
+
+    if (post.author.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: "You are not authorized to update this post.",
+      });
+    }
+
+    if (title !== undefined) {
+      post.title = title;
+    }
+    if (description !== undefined) {
+      post.description = description;
+    }
+
+    await post.save();
+
+    await post.populate("author", "email profile.displayName profile.avatar");
+
+    res.status(200).json({
+      success: true,
+      message: "Post updated successfully.",
+      post,
+    });
+  } catch (error) {
+    console.error("Update post error:", error);
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ success: false, error: error.message });
+    }
+    res.status(500).json({ success: false, error: "Failed to update post." });
+  }
+};
+
+/**
+ * Delete a post (Owner only)
+ */
+exports.deletePost = async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const userId = req.user.userId; 
+
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      return res.status(404).json({ success: false, error: "Post not found." });
+    }
+
+    if (post.author.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: "You are not authorized to delete this post.",
+      });
+    }
+
+    await Post.findByIdAndDelete(postId);
+
+    res.status(200).json({
+      success: true,
+      message: "Post deleted successfully.",
+    });
+  } catch (error) {
+    console.error("Delete post error:", error);
+    res.status(500).json({ success: false, error: "Failed to delete post." });
   }
 };

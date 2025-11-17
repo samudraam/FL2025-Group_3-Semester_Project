@@ -95,7 +95,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: samudraam/badminton-backend:v1
+          image: samudraam/badmintonapp-backend:latest
           ports:
             - containerPort: 3001
           env:

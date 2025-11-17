@@ -1,6 +1,8 @@
-import React from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import React, { useState } from "react";
+import { View, Text, StyleSheet, Pressable, Modal, Alert } from "react-native";
 import { router } from "expo-router";
+import { useAuth } from "../services/authContext";
+import { postsAPI } from "../services/api";
 
 /**
  * Interface for Post data structure
@@ -24,6 +26,8 @@ interface Post {
 
 interface PostCardProps {
   post: Post;
+  onPostDeleted?: () => void;
+  onPostUpdated?: () => void;
 }
 
 /**
@@ -61,13 +65,31 @@ const formatTimestamp = (dateString: string): string => {
 /**
  * PostCard component displays a single community post
  */
-export default function PostCard({ post }: PostCardProps) {
+export default function PostCard({
+  post,
+  onPostDeleted,
+  onPostUpdated,
+}: PostCardProps) {
+  const { user } = useAuth();
+  const [menuModalVisible, setMenuModalVisible] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const menuButtonRef = React.useRef<View>(null);
+  const [dropdownPosition, setDropdownPosition] = useState({
+    top: 0,
+    right: 0,
+  });
+
   const authorName =
     post.author.profile?.displayName || post.author.email || "Unknown User";
   const authorInitial = authorName.charAt(0).toUpperCase();
   const authorHandle = post.author.email
     ? `@${post.author.email.split("@")[0]}`
     : "@user";
+
+  const isOwner =
+    user && "id" in user && "id" in post.author
+      ? user.id === post.author.id
+      : false;
 
   const handleAuthorPress = () => {
     router.push({
@@ -90,42 +112,161 @@ export default function PostCard({ post }: PostCardProps) {
   };
 
   const handleMenuPress = () => {
-    // TODO: Implement menu options (edit, delete, report, etc.)
-    console.log("Menu options coming soon");
+    if (menuButtonRef.current) {
+      menuButtonRef.current.measureInWindow((x, y, width, height) => {
+        setDropdownPosition({
+          top: y + height + 4,
+          right:
+            typeof window !== "undefined" ? window.innerWidth - x - width : 20,
+        });
+        setMenuModalVisible(true);
+      });
+    } else {
+      setMenuModalVisible(true);
+    }
+  };
+
+  const handleCloseMenu = () => {
+    setMenuModalVisible(false);
+  };
+
+  const handleEditPress = async () => {
+    try {
+      await postsAPI.updatePost(post._id, {
+        title: post.title,
+        description: post.description,
+        location: post.location,
+      });
+      onPostUpdated?.();
+      handleCloseMenu();
+    } catch (error) {
+      Alert.alert("Error", "Failed to update post.");
+      console.error(error);
+    }
+  };
+
+  const handleDeletePress = async () => {
+    Alert.alert("Delete Post", "Are you sure you want to delete this post?", [
+      {
+        text: "Cancel",
+        onPress: () => {},
+        style: "cancel",
+      },
+      {
+        text: "Delete",
+        onPress: async () => {
+          setIsDeleting(true);
+          try {
+            await postsAPI.deletePost(post._id);
+            onPostDeleted?.();
+            handleCloseMenu();
+          } catch (error) {
+            Alert.alert("Error", "Failed to delete post.");
+            console.error(error);
+          } finally {
+            setIsDeleting(false);
+          }
+        },
+      },
+    ]);
   };
 
   return (
-    <View style={styles.card}>
-      <View style={styles.header}>
-        <Pressable style={styles.authorSection} onPress={handleAuthorPress}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{authorInitial}</Text>
-          </View>
-          <View style={styles.authorInfo}>
-            <Text style={styles.authorName}>{authorName}</Text>
-            <Text style={styles.authorHandle}>{authorHandle}</Text>
-          </View>
-        </Pressable>
+    <>
+      <View style={styles.card}>
+        <View style={styles.header}>
+          <Pressable style={styles.authorSection} onPress={handleAuthorPress}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{authorInitial}</Text>
+            </View>
+            <View style={styles.authorInfo}>
+              <Text style={styles.authorName}>{authorName}</Text>
+              <Text style={styles.authorHandle}>{authorHandle}</Text>
+            </View>
+          </Pressable>
 
-        <Pressable style={styles.menuButton} onPress={handleMenuPress}>
-          <Text style={styles.menuIcon}>⋮</Text>
+          <View ref={menuButtonRef} style={styles.menuButtonContainer}>
+            <Pressable style={styles.menuButton} onPress={handleMenuPress}>
+              <Text style={styles.menuIcon}>⋮</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={styles.locationTimeRow}>
+          {post.location && (
+            <Text style={styles.location}>{post.location} - </Text>
+          )}
+          <Text style={styles.timestamp}>
+            {formatTimestamp(post.createdAt)}
+          </Text>
+        </View>
+
+        <Text style={styles.title}>{post.title}</Text>
+        <Text style={styles.description}>{post.description}</Text>
+
+        <Pressable style={styles.replyButton} onPress={handleReplyPress}>
+          <Text style={styles.replyButtonText}>Reply</Text>
         </Pressable>
       </View>
 
-      <View style={styles.locationTimeRow}>
-        {post.location && (
-          <Text style={styles.location}>{post.location} - </Text>
-        )}
-        <Text style={styles.timestamp}>{formatTimestamp(post.createdAt)}</Text>
-      </View>
+      {/* Overlay to close menu when clicking outside */}
+      {menuModalVisible && (
+        <Pressable style={StyleSheet.absoluteFill} onPress={handleCloseMenu} />
+      )}
 
-      <Text style={styles.title}>{post.title}</Text>
-      <Text style={styles.description}>{post.description}</Text>
-
-      <Pressable style={styles.replyButton} onPress={handleReplyPress}>
-        <Text style={styles.replyButtonText}>Reply</Text>
-      </Pressable>
-    </View>
+      {/* Modal with dropdown menu */}
+      <Modal
+        visible={menuModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleCloseMenu}
+      >
+        <Pressable style={styles.modalOverlay} onPress={handleCloseMenu}>
+          <Pressable
+            style={[
+              styles.menuDropdown,
+              {
+                top: dropdownPosition.top,
+                right: dropdownPosition.right,
+              },
+            ]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            {isOwner ? (
+              <>
+                <Pressable
+                  style={styles.menuOption}
+                  onPress={() => {
+                    handleEditPress();
+                  }}
+                  disabled={isDeleting}
+                >
+                  <Text style={styles.menuOptionText}>Edit</Text>
+                </Pressable>
+                <View style={styles.menuDivider} />
+                <Pressable
+                  style={styles.menuOption}
+                  onPress={() => {
+                    handleDeletePress();
+                  }}
+                  disabled={isDeleting}
+                >
+                  <Text
+                    style={[styles.menuOptionText, styles.deleteOptionText]}
+                  >
+                    {isDeleting ? "Deleting..." : "Delete"}
+                  </Text>
+                </Pressable>
+              </>
+            ) : (
+              <Pressable style={styles.menuOption} onPress={handleCloseMenu}>
+                <Text style={styles.menuOptionText}>Report</Text>
+              </Pressable>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
   );
 }
 
@@ -182,6 +323,10 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans_400Regular",
     color: "#666",
   },
+  menuButtonContainer: {
+    position: "relative",
+    zIndex: 1000, // Increase this
+  },
   menuButton: {
     padding: 4,
     paddingHorizontal: 8,
@@ -190,6 +335,43 @@ const styles = StyleSheet.create({
     fontSize: 25,
     color: "#666",
     fontWeight: "bold",
+  },
+  menuDropdown: {
+    position: "absolute",
+    top: 36,
+    left : 230,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    paddingVertical: 4,
+    minWidth: 120,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 10, 
+    zIndex: 1001, 
+  },
+  menuOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    minWidth: 120,
+  },
+  menuOptionText: {
+    fontSize: 15,
+    fontFamily: "DMSans_500Medium",
+    color: "#000",
+  },
+  deleteOptionText: {
+    color: "#FF3B30",
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: "#E0E0E0",
+    marginVertical: 2,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "transparent",
   },
   locationTimeRow: {
     flexDirection: "row",

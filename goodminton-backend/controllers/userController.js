@@ -723,42 +723,42 @@ exports.checkFriendshipStatus = async (req, res) => {
 
 /**
  * 获取当前用户的好友排行榜
- * Get the current user's friend leaderboard
+ * Get the current user's friend leaderboard (overwriting the new implementation)
  */
-exports.getFriendsLeaderboard = async (req, res) => {
-  try {
-    // 1. 从数据库中查找当前用户，并使用 .populate() 一次性加载他所有好友的必要信息
-    // 1. Find the current user and populate necessary info for their friends
-    const currentUser = await User.findById(req.user.userId).populate(
-      "friends",
-      "profile.displayName ratings email profile.points email" // 我们只需要好友的昵称、积分和邮箱
-    );
+// exports.getFriendsLeaderboard = async (req, res) => {
+//   try {
+//     // 1. 从数据库中查找当前用户，并使用 .populate() 一次性加载他所有好友的必要信息
+//     // 1. Find the current user and populate necessary info for their friends
+//     const currentUser = await User.findById(req.user.userId).populate(
+//       "friends",
+//       "profile.displayName ratings email profile.points email" // 我们只需要好友的昵称、积分和邮箱
+//     );
 
-    if (!currentUser) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Current user not found." });
-    }
+//     if (!currentUser) {
+//       return res
+//         .status(404)
+//         .json({ success: false, error: "Current user not found." });
+//     }
 
-    // 2. 创建一个用于排序的排行榜数组，并将所有好友放进去
-    // 2. Create a leaderboard array and add all friends to it
-    const leaderboard = [...currentUser.friends];
+//     // 2. 创建一个用于排序的排行榜数组，并将所有好友放进去
+//     // 2. Create a leaderboard array and add all friends to it
+//     const leaderboard = [...currentUser.friends];
 
-    // 3. 将当前用户自己也加入排行榜，以便进行比较
-    // 3. Add the current user to the leaderboard for comparison
-    leaderboard.push(currentUser);
+//     // 3. 将当前用户自己也加入排行榜，以便进行比较
+//     // 3. Add the current user to the leaderboard for comparison
+//     leaderboard.push(currentUser);
 
-    // 4. 使用 sort() 方法，按照个人资料中的积分 (profile.points) 从高到低进行排序
-    // 4. Sort the leaderboard by points in descending order
-    leaderboard.sort((a, b) => b.profile.points - a.profile.points);
+//     // 4. 使用 sort() 方法，按照个人资料中的积分 (profile.points) 从高到低进行排序
+//     // 4. Sort the leaderboard by points in descending order
+//     leaderboard.sort((a, b) => b.profile.points - a.profile.points);
 
-    // 5. 将排序后的排行榜作为成功响应返回
-    // 5. Send the sorted leaderboard as a success response
-    res.status(200).json({ success: true, leaderboard });
-  } catch (error) {
-    console.error("Get leaderboard error:", error);
-    res
-      .status(500)
-      .json({ success: false, error: "Failed to fetch leaderboard." });
-  }
-};
+//     // 5. 将排序后的排行榜作为成功响应返回
+//     // 5. Send the sorted leaderboard as a success response
+//     res.status(200).json({ success: true, leaderboard });
+//   } catch (error) {
+//     console.error("Get leaderboard error:", error);
+//     res
+//       .status(500)
+//       .json({ success: false, error: "Failed to fetch leaderboard." });
+//   }
+// };

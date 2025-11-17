@@ -307,6 +307,26 @@ export const postsAPI = {
     const response = await api.get(`/posts/${postId}`);
     return response.data;
   },
+  
+  /**
+   * Update an existing post
+   */
+  updatePost: async (postId: string, postData: {
+    title: string;
+    description: string;
+    location?: string;
+  }) => {
+    const response = await api.put(`/posts/${postId}`, postData);
+    return response.data;
+  },
+
+  /**
+   * Delete a post
+   */
+  deletePost: async (postId: string) => {
+    const response = await api.delete(`/posts/${postId}`);
+    return response.data;
+  },
 };
 
 export interface Conversation {
