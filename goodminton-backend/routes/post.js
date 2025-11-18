@@ -22,4 +22,16 @@ router.get("/", postController.getAllPosts);
 // @access  Public (公开)
 router.get("/:id", postController.getPostById);
 
+// --- (新增) ---
+// @route   PUT /api/posts/:id
+// @desc    更新一个帖子 (Update a post)
+// @access  Private (仅限作者)
+router.put("/:id", authenticateToken, postController.updatePost);
+
+// --- (新增) ---
+// @route   DELETE /api/posts/:id
+// @desc    删除一个帖子 (Delete a post)
+// @access  Private (仅限作者)
+router.delete("/:id", authenticateToken, postController.deletePost);
+
 module.exports = router;
