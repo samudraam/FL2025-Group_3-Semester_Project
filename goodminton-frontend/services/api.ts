@@ -301,6 +301,26 @@ export const postsAPI = {
   },
 
   /**
+   * Edit a post
+   */
+  editPost: async (postId: string, postData: {
+    title: string;
+    description: string;
+    location?: string;
+  }) => {
+    const response = await api.put(`/posts/${postId}`, postData);
+    return response.data;
+  },
+
+  /**
+   * Delete a post
+   */
+  deletePost: async (postId: string) => {
+    const response = await api.delete(`/posts/${postId}`);
+    return response.data;
+  },
+
+  /**
    * Get a specific post by ID
    */
   getPostById: async (postId: string) => {

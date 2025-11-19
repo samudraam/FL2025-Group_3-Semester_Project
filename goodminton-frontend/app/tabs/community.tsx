@@ -87,7 +87,24 @@ export default function Community() {
     setModalVisible(true);
   };
 
+  /**
+   * Handles post creation - refetches all posts
+   */
   const handlePostCreated = () => {
+    fetchPosts();
+  };
+
+  /**
+   * Handles post deletion - refetches all posts
+   */
+  const handlePostDeleted = () => {
+    fetchPosts();
+  };
+
+  /**
+   * Handles post update - refetches all posts
+   */
+  const handlePostUpdated = () => {
     fetchPosts();
   };
 
@@ -153,7 +170,13 @@ export default function Community() {
       ) : (
         <FlatList
           data={posts}
-          renderItem={({ item }) => <PostCard post={item} />}
+          renderItem={({ item }) => (
+            <PostCard
+              post={item}
+              onPostDeleted={handlePostDeleted}
+              onPostUpdated={handlePostUpdated}
+            />
+          )}
           keyExtractor={(item) => item._id}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={renderEmptyState}
