@@ -6,14 +6,6 @@ import { fetchWithRetry } from '../services/apiHelpers';
 import { apiCache } from '../services/apiCache';
 
 /**
- * Individual game score interface
- */
-interface GameScore {
-    player1Score: number;
-    player2Score: number;
-}
-
-/**
  * Game confirmation interface for type safety
  * Matches the structure from the backend API
  */
