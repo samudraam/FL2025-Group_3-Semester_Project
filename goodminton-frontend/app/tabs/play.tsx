@@ -56,6 +56,10 @@ export default function Play() {
     console.log("Notifications pressed");
   };
 
+  const handleProfilePress = () => {
+    router.push("/profile");
+  };
+
   const navItems = [
     { id: "community", label: "community", icon: <CommunityIcon /> },
     { id: "rankings", label: "rankings", icon: <RankingsIcon /> },
@@ -63,7 +67,7 @@ export default function Play() {
     { id: "play", label: "play", icon: <PlayIcon /> },
     { id: "courts", label: "courts", icon: <CourtsIcon /> },
   ];
-  
+
   const handleMessagePress = () => {
     router.push("/chat/messages");
   };
@@ -75,6 +79,7 @@ export default function Play() {
         onSettingsPress={handleSettingsPress}
         onNotificationPress={handleNotificationPress}
         onMessagePress={handleMessagePress}
+        onProfilePress={handleProfilePress}
       />
 
       <View style={styles.content}>

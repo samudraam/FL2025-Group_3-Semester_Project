@@ -32,6 +32,10 @@ export default function Rankings() {
     // TODO: Navigate to notifications screen
   };
 
+  const handleProfilePress = () => {
+    router.push("/profile");
+  };
+
   /**
    * Handle navigation between tabs
    */
@@ -76,6 +80,7 @@ export default function Rankings() {
         onSettingsPress={handleSettingsPress}
         onNotificationPress={handleNotificationPress}
         onMessagePress={handleMessagePress}
+        onProfilePress={handleProfilePress}
       />
 
       {/* Scrollable Content */}

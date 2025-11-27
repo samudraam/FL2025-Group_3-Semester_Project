@@ -12,6 +12,7 @@ interface ProfileHeaderProps {
   onSettingsPress?: () => void;
   onNotificationPress?: () => void;
   onMessagePress?: () => void;
+  onProfilePress?: () => void;
 }
 
 export default function ProfileHeader({
@@ -20,6 +21,7 @@ export default function ProfileHeader({
   onSettingsPress,
   onNotificationPress,
   onMessagePress,
+  onProfilePress,
 }: ProfileHeaderProps) {
   /**
    * Get current date in the format "Wed, Oct 8 2025"
@@ -35,10 +37,25 @@ export default function ProfileHeader({
     return now.toLocaleDateString("en-US", options);
   };
 
+  const handleProfilePress = () => {
+    if (!onProfilePress) {
+      return;
+    }
+    onProfilePress();
+  };
+
   return (
     <View style={styles.container}>
       {/* Profile Picture */}
-      <View style={styles.profileSection}>
+      <Pressable
+        style={styles.profileSection}
+        onPress={handleProfilePress}
+        disabled={!onProfilePress}
+        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        accessibilityRole="button"
+        accessibilityLabel="Open profile"
+        accessibilityState={{ disabled: !onProfilePress }}
+      >
         <View style={styles.profileImageContainer}>
           {profileImageUri ? (
             <Image
@@ -59,7 +76,7 @@ export default function ProfileHeader({
           <Text style={styles.date}>{getCurrentDate()}</Text>
           <Text style={styles.username}>{username}</Text>
         </View>
-      </View>
+      </Pressable>
 
       {/* Action Icons */}
       <View style={styles.actionIcons}>

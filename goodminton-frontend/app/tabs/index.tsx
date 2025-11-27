@@ -35,6 +35,10 @@ export default function Home() {
     router.push("/tabs/settings");
   };
 
+  const handleProfilePress = () => {
+    router.push("/profile");
+  };
+
   const handleNotificationPress = () => {
     console.log("Notifications pressed");
   };
@@ -135,6 +139,7 @@ export default function Home() {
         onSettingsPress={handleSettingsPress}
         onNotificationPress={handleNotificationPress}
         onMessagePress={handleMessagePress}
+        onProfilePress={handleProfilePress}
       />
 
       {/* Scrollable Content */}

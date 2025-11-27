@@ -83,6 +83,10 @@ export default function Community() {
     console.log("Notifications pressed");
   };
 
+  const handleProfilePress = () => {
+    router.push("/profile");
+  };
+
   const handleCreatePostPress = () => {
     setModalVisible(true);
   };
@@ -154,6 +158,7 @@ export default function Community() {
         onSettingsPress={handleSettingsPress}
         onNotificationPress={handleNotificationPress}
         onMessagePress={handleMessagePress}
+        onProfilePress={handleProfilePress}
       />
 
       <View style={styles.headerRow}>

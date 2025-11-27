@@ -21,6 +21,8 @@ import {
 } from "../../components/NavIcons";
 import { router } from "expo-router";
 import CourtDetailsModal from "../../components/CourtDetailsModal";
+import ProfileHeader from "../../components/ProfileHeader";
+import { useAuth } from "../../services/authContext";
 
 type Court = {
   _id: string;
@@ -47,6 +49,7 @@ const API_BASE_URL = "http://localhost:3001"; // ⚠️替换成你的后端 URL
  * Courts screen - displays a map with user's current location
  */
 export default function Courts() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("courts");
   const [location, setLocation] = useState<Location.LocationObject | null>(
     null
@@ -79,6 +82,22 @@ export default function Courts() {
     longitude: -90.1994,
     latitudeDelta: 0.0922,
     longitudeDelta: 0.0421,
+  };
+
+  const handleSettingsPress = () => {
+    router.push("/tabs/settings");
+  };
+
+  const handleNotificationPress = () => {
+    console.log("Notifications pressed");
+  };
+
+  const handleMessagePress = () => {
+    router.push("/chat/messages");
+  };
+
+  const handleProfilePress = () => {
+    router.push("/profile");
   };
   /**
    * Get user's current location on component mount
@@ -119,7 +138,7 @@ export default function Courts() {
         latitudeDelta: 0.0922,
         longitudeDelta: 0.0421,
       };
-      mapRef.current.animateToRegion(region, 1000); 
+      mapRef.current.animateToRegion(region, 1000);
     }
   }, [location, loading]);
 
@@ -225,6 +244,13 @@ export default function Courts() {
 
   return (
     <View style={styles.container}>
+      <ProfileHeader
+        username={user?.profile?.displayName || user?.email || "JSONderulo"}
+        onSettingsPress={handleSettingsPress}
+        onNotificationPress={handleNotificationPress}
+        onMessagePress={handleMessagePress}
+        onProfilePress={handleProfilePress}
+      />
       {/* Search Bar View */}
       <View style={styles.searchContainer}>
         {/* 搜索框 */}
@@ -280,7 +306,6 @@ export default function Courts() {
         showsScale={true}
         mapType="standard"
       >
-
         {courts.map((court) => {
           console.log(
             "Rendering marker for:",
@@ -416,7 +441,7 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     position: "absolute",
-    top: 50, // SafeAreaView 会保留状态栏
+    top: 180, // offset below profile header
     left: 10,
     right: 10,
     zIndex: 10,
