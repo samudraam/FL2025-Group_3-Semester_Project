@@ -28,6 +28,8 @@ export default function ProfileScreen() {
   const [followingCount, setFollowingCount] = useState<number | null>(null);
 
   const displayName = user?.profile?.displayName || user?.email || "Player";
+  const firstName = user?.profile?.firstName || "";
+  const lastName = user?.profile?.lastName || "";
   const levelName = user?.profile?.level || "recreational";
   const rankingPoints = Math.max(1, Math.round(user?.profile?.points || 1200));
   const matchesPlayed = Math.max(10, Math.round(rankingPoints / 5));
@@ -154,13 +156,12 @@ export default function ProfileScreen() {
             isUploading={isUploadingAvatar}
           />
           <View style={styles.identityBlock}>
-            <Text style={styles.displayName}>{displayName}</Text>
+            <Text style={styles.displayName}>{firstName} {lastName}</Text>
             {user?.email ? (
               <Text style={styles.emailText}>{user.email}</Text>
             ) : null}
           </View>
           <View style={styles.statRow}>
-            <ProfileStatBadge label="ranking" value={`#${rankingPoints}`} />
             <ProfileStatBadge label="level" value={levelName} />
             <ProfileStatBadge
               label="following"
@@ -179,24 +180,6 @@ export default function ProfileScreen() {
             matchesPlayed={matchesPlayed}
             matchesWon={matchesWon}
           />
-        </ProfileSectionCard>
-
-        <ProfileSectionCard title="Connections">
-          <View style={styles.connectionRow}>
-            <View style={styles.connectionItem}>
-              <Text style={styles.connectionLabel}>Followers</Text>
-              <Text style={styles.connectionValue}>—</Text>
-            </View>
-            <View style={styles.connectionItem}>
-              <Text style={styles.connectionLabel}>Following</Text>
-              <Text style={styles.connectionValue}>
-                {followingCount === null ? "..." : String(followingCount || 0)}
-              </Text>
-            </View>
-          </View>
-          <Text style={styles.connectionHint}>
-            We will sync live numbers as soon as the follow service goes online.
-          </Text>
         </ProfileSectionCard>
       </ScrollView>
     </SafeAreaView>

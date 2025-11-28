@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
   },
   detailBlock: {
     flex: 1.2,
-    flexDirection: "row",
+    flexDirection: "column",
     justifyContent: "space-between",
   },
   detailItem: {

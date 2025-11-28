@@ -55,17 +55,21 @@ exports.getFriendsLeaderboard = async (req, res) => {
 
     // 从查询参数获取要排名的项目和性别
     // Get discipline and gender from query params
-    const { discipline = 'singles', gender = 'male' } = req.query;
-    
+    const { discipline = "singles", gender = "male" } = req.query;
+
     // 定义有效值 (Define valid values)
-    const validDisciplines = ['singles', 'doubles', 'mixed'];
-    const validGenders = ['male', 'female'];
+    const validDisciplines = ["singles", "doubles", "mixed"];
+    const validGenders = ["male", "female"];
 
     // 验证参数 (Validate parameters)
-    if (!validDisciplines.includes(discipline) || !validGenders.includes(gender)) {
+    if (
+      !validDisciplines.includes(discipline) ||
+      !validGenders.includes(gender)
+    ) {
       return res.status(400).json({
         success: false,
-        error: "Invalid discipline or gender. Use 'singles', 'doubles', 'mixed' for discipline and 'male', 'female' for gender.",
+        error:
+          "Invalid discipline or gender. Use 'singles', 'doubles', 'mixed' for discipline and 'male', 'female' for gender.",
       });
     }
 
@@ -78,14 +82,15 @@ exports.getFriendsLeaderboard = async (req, res) => {
 
     // 查找当前用户并填充好友的必要信息
     // Find user and populate friends' necessary info
-    const currentUser = await User.findById(req.user.userId)
-      .populate(
-        "friends",
-        `profile.displayName ${ratingField} email gender` // 必须同时获取 gender 和对应的 rating
-      );
+    const currentUser = await User.findById(req.user.userId).populate(
+      "friends",
+      `profile.displayName ${ratingField} email gender` // 必须同时获取 gender 和对应的 rating
+    );
 
     if (!currentUser) {
-      return res.status(404).json({ success: false, error: "Current user not found." });
+      return res
+        .status(404)
+        .json({ success: false, error: "Current user not found." });
     }
 
     // --- 3. 处理数据 ---
@@ -95,31 +100,36 @@ exports.getFriendsLeaderboard = async (req, res) => {
     // Add self to the list
     const fullList = [
       ...currentUser.friends,
-      currentUser // 自身信息已包含所需积分 (currentUser already has the needed rating field)
+      currentUser, // 自身信息已包含所需积分 (currentUser already has the needed rating field)
     ];
 
     // 4. *** 关键改动：按性别筛选 ***
     // 4. *** KEY CHANGE: Filter by gender ***
-    const filteredLeaderboard = fullList.filter(user => user.gender === gender);
-    
+    const filteredLeaderboard = fullList.filter(
+      (user) => user.gender === gender
+    );
+
     // 5. 按指定项目的积分降序排序
     // 5. Sort by the specified discipline's rating descending
-    filteredLeaderboard.sort((a, b) => (b.ratings?.[discipline] || 1000) - (a.ratings?.[discipline] || 1000));
+    filteredLeaderboard.sort(
+      (a, b) =>
+        (b.ratings?.[discipline] || 1000) - (a.ratings?.[discipline] || 1000)
+    );
 
     // --- 4. 返回响应 ---
     // --- 4. Send Response ---
     res.status(200).json({
       success: true,
       discipline: discipline, // 告诉前端当前是什么榜单
-      gender: gender,         // 告诉前端当前是什么性别
-      leaderboard: filteredLeaderboard.map(p => ({ // 返回简化信息
+      gender: gender, // 告诉前端当前是什么性别
+      leaderboard: filteredLeaderboard.map((p) => ({
+        // 返回简化信息
         _id: p._id,
         displayName: p.profile.displayName,
         rating: p.ratings?.[discipline] || 1000, // 返回对应积分
-        gender: p.gender
-      }))
+        gender: p.gender,
+      })),
     });
-
   } catch (error) {
     console.error(`Get ${gender} ${discipline} leaderboard error:`, error);
     res
@@ -516,39 +526,49 @@ exports.searchUsers = async (req, res) => {
   try {
     const { q } = req.query;
     const currentUserId = req.user.userId;
+    const trimmedQuery = q?.trim();
 
-    if (!q || q.length < 2) {
+    if (!trimmedQuery || trimmedQuery.length < 2) {
       return res.status(400).json({
         success: false,
         error: "Search query must be at least 2 characters long.",
       });
     }
 
-    // Get current user to check existing friends
     const currentUser = await User.findById(currentUserId);
+    if (!currentUser) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Current user not found." });
+    }
 
-    // Search for users by email or display name
+    const escapedQuery = trimmedQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const queryRegex = new RegExp(escapedQuery, "i");
+
     const users = await User.find({
       $and: [
         { _id: { $ne: currentUserId } },
         { publicProfile: { $ne: false } },
         {
           $or: [
-            { email: { $regex: q, $options: "i" } },
-            { "profile.displayName": { $regex: q, $options: "i" } },
+            { email: queryRegex },
+            { phone: queryRegex },
+            { "profile.displayName": queryRegex },
+            { "profile.firstName": queryRegex },
+            { "profile.lastName": queryRegex },
           ],
         },
       ],
     })
       .select(
-        "email profile.displayName profile.avatar profile.points stats.gamesPlayed"
+        "email phone profile.displayName profile.firstName profile.lastName profile.avatar stats.gamesPlayed"
       )
-      .limit(10);
+      .limit(25);
 
-    // Add friend status to each user
     const usersWithFriendStatus = users.map((user) => ({
       _id: user._id,
       email: user.email,
+      phone: user.phone,
       profile: user.profile,
       stats: user.stats,
       isFriend: currentUser.isFriend(user._id),
@@ -640,5 +660,3 @@ exports.checkFriendshipStatus = async (req, res) => {
     });
   }
 };
-
-
