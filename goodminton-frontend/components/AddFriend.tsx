@@ -1,4 +1,10 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   View,
   Text,
@@ -90,47 +96,104 @@ const ResultCard = React.memo(({ user, onPress }: ResultCardProps) => {
  */
 const AddFriendComponent = () => {
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [results, setResults] = useState<SearchResponseUser[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const latestSearchTermRef = useRef("");
+
+  const handleQueryChange = useCallback((text: string) => {
+    setQuery(text);
+  }, []);
+
+  const performSearch = useCallback(
+    async (term: string, showFeedback: boolean) => {
+      const sanitized = term.trim();
+      if (!sanitized) {
+        latestSearchTermRef.current = "";
+        setResults([]);
+        setHasSearched(false);
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (sanitized.length < 2) {
+        latestSearchTermRef.current = "";
+        setResults([]);
+        setHasSearched(false);
+        if (showFeedback) {
+          Alert.alert("Too short", "Type at least 2 characters to search.");
+        }
+        return;
+      }
+
+      const activeTerm = sanitized;
+      latestSearchTermRef.current = activeTerm;
+      setHasSearched(false);
+      setIsSubmitting(true);
+      try {
+        const response = await usersAPI.search(activeTerm);
+        const usersList: SearchResponseUser[] =
+          (Array.isArray(response?.users) && response.users) ||
+          (response?.user ? [response.user] : []);
+        if (response?.success) {
+          if (latestSearchTermRef.current !== activeTerm) {
+            return;
+          }
+          setResults(usersList);
+          setHasSearched(true);
+          if (!usersList.length && showFeedback) {
+            Alert.alert(
+              "No matches",
+              "Try another keyword such as last name or phone."
+            );
+          }
+        } else if (showFeedback) {
+          Alert.alert("Not found", "Could not find user");
+        }
+      } catch (error: any) {
+        const msg = error?.response?.data?.error || "Search failed";
+        if (showFeedback) {
+          Alert.alert("Error", msg);
+        }
+      } finally {
+        if (latestSearchTermRef.current === activeTerm) {
+          setIsSubmitting(false);
+        }
+      }
+    },
+    []
+  );
 
   /**
    * Search for a user by email/phone without sending a request.
    */
-  const handleSearch = useCallback(async () => {
-    const trimmed = query.trim();
-    if (!trimmed) {
-      Alert.alert("Enter a display name, username, email, or phone number");
+  const handleSearch = useCallback(() => {
+    performSearch(query, true);
+  }, [performSearch, query]);
+
+  useEffect(() => {
+    if (!query.trim()) {
+      latestSearchTermRef.current = "";
+      setDebouncedQuery("");
+      setResults([]);
+      setHasSearched(false);
+      setIsSubmitting(false);
       return;
     }
 
-    setIsSubmitting(true);
-    setHasSearched(false);
-    setResults([]);
-    try {
-      const response = await usersAPI.search(trimmed);
-      const usersList: SearchResponseUser[] =
-        (Array.isArray(response?.users) && response.users) ||
-        (response?.user ? [response.user] : []);
-      if (response?.success) {
-        setResults(usersList);
-        if (!usersList.length) {
-          Alert.alert(
-            "No matches",
-            "Try another keyword such as last name or phone."
-          );
-        }
-      } else {
-        Alert.alert("Not found", "Could not find user");
-      }
-    } catch (error: any) {
-      const msg = error?.response?.data?.error || "Search failed";
-      Alert.alert("Error", msg);
-    } finally {
-      setIsSubmitting(false);
-      setHasSearched(true);
-    }
+    const timeout = setTimeout(() => {
+      setDebouncedQuery(query.trim());
+    }, 400);
+    return () => clearTimeout(timeout);
   }, [query]);
+
+  useEffect(() => {
+    if (!debouncedQuery || debouncedQuery.length < 2) {
+      return;
+    }
+    performSearch(debouncedQuery, false);
+  }, [debouncedQuery, performSearch]);
 
   /**
    * Navigate to the profile viewer for the found user.
@@ -172,7 +235,7 @@ const AddFriendComponent = () => {
       <View style={styles.searchRow}>
         <TextInput
           value={query}
-          onChangeText={setQuery}
+          onChangeText={handleQueryChange}
           placeholder="search display name / username / email / phone"
           placeholderTextColor="#949494"
           autoCapitalize="none"
@@ -199,6 +262,9 @@ const AddFriendComponent = () => {
           )}
         </Pressable>
       </View>
+      <Text style={styles.helperText} accessibilityRole="text">
+        Suggestions update automatically as you type.
+      </Text>
 
       <FlatList
         data={results}
@@ -221,6 +287,12 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     alignSelf: "stretch",
     width: "100%",
+  },
+  helperText: {
+    fontSize: 12,
+    fontFamily: "DMSans_400Regular",
+    color: "#666666",
+    marginBottom: 12,
   },
   searchRow: {
     flexDirection: "row",
