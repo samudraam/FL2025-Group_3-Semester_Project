@@ -14,9 +14,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  FlatList,
 } from "react-native";
-import type { ListRenderItem } from "react-native";
 import { usersAPI } from "../services/api";
 import { router } from "expo-router";
 
@@ -214,16 +212,6 @@ const AddFriendComponent = () => {
     );
   }, []);
 
-  const renderUserItem = useCallback<ListRenderItem<SearchResponseUser>>(
-    ({ item }) => <ResultCard user={item} onPress={handleViewProfile} />,
-    [handleViewProfile]
-  );
-
-  const keyExtractor = useCallback(
-    (item: SearchResponseUser) => item._id || item.id || item.email,
-    []
-  );
-
   const emptyComponent = useMemo(() => {
     if (!hasSearched || isSubmitting) return null;
     return (
@@ -242,7 +230,7 @@ const AddFriendComponent = () => {
         <TextInput
           value={query}
           onChangeText={handleQueryChange}
-          placeholder="search display name / username / email / phone"
+          placeholder="search for a player"
           placeholderTextColor="#949494"
           autoCapitalize="none"
           keyboardType="default"
@@ -269,23 +257,48 @@ const AddFriendComponent = () => {
         </Pressable>
       </View>
       <Text style={styles.helperText} accessibilityRole="text">
-        Suggestions update automatically as you type.
+        Suggestions update automatically as you type.  
+        Search by display name, username, email, or phone number.
       </Text>
 
-      <FlatList
+      <ResultsList
         data={results}
-        keyExtractor={keyExtractor}
-        renderItem={renderUserItem}
-        keyboardShouldPersistTaps="handled"
-        ListEmptyComponent={emptyComponent}
-        ItemSeparatorComponent={CardSeparator}
-        contentContainerStyle={
-          results.length ? styles.resultsContent : styles.resultsEmptyContent
-        }
+        onSelectUser={handleViewProfile}
+        emptyComponent={emptyComponent}
       />
     </View>
   );
 };
+
+interface ResultsListProps {
+  data: SearchResponseUser[];
+  onSelectUser: (user: SearchResponseUser) => void;
+  emptyComponent: React.ReactNode;
+}
+
+const ResultsList = React.memo(
+  ({ data, onSelectUser, emptyComponent }: ResultsListProps) => {
+    if (!data.length) {
+      if (!emptyComponent) {
+        return <View style={styles.resultsEmptyContent} />;
+      }
+      return <View style={styles.resultsEmptyContent}>{emptyComponent}</View>;
+    }
+
+    const items = data.map((user, index) => {
+      const key = user._id || user.id || user.email;
+      const showSeparator = index < data.length - 1;
+      return (
+        <React.Fragment key={key}>
+          <ResultCard user={user} onPress={onSelectUser} />
+          {showSeparator && <CardSeparator />}
+        </React.Fragment>
+      );
+    });
+
+    return <View style={styles.resultsContent}>{items}</View>;
+  }
+);
 
 const styles = StyleSheet.create({
   container: {
@@ -296,9 +309,11 @@ const styles = StyleSheet.create({
   },
   helperText: {
     fontSize: 12,
+    alignSelf: "center",
+    textAlign: "center",
     fontFamily: "DMSans_400Regular",
     color: "#666666",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   searchRow: {
     flexDirection: "row",
