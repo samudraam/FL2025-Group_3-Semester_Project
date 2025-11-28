@@ -61,6 +61,8 @@ const ResultCard = React.memo(({ user, onPress }: ResultCardProps) => {
     user.email;
   const secondaryText = user.phone || user.email;
 
+  const avatarUri = user.profile.avatar;
+
   return (
     <Pressable
       style={styles.card}
@@ -71,7 +73,11 @@ const ResultCard = React.memo(({ user, onPress }: ResultCardProps) => {
       focusable
     >
       <View style={styles.avatar}>
-        <Text style={styles.avatarInitial}>{initials}</Text>
+        {avatarUri ? (
+          <Image source={{ uri: avatarUri }} style={styles.cardAvatarImage} />
+        ) : (
+          <Text style={styles.avatarInitial}>{initials}</Text>
+        )}
       </View>
       <View style={styles.nameBlock}>
         <Text style={styles.nameText}>{primaryText}</Text>
@@ -353,6 +359,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
+    overflow: "hidden",
+  },
+  cardAvatarImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 18,
   },
   avatarInitial: {
     fontSize: 16,

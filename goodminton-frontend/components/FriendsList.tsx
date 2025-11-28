@@ -9,6 +9,7 @@ import {
   Alert,
   ScrollView,
   TextInput,
+  Image,
 } from "react-native";
 import { authAPI, gamesAPI, usersAPI } from "../services/api";
 import { fetchWithRetry } from "../services/apiHelpers";
@@ -35,6 +36,7 @@ interface Friend {
     displayName?: string;
     firstName?: string;
     lastName?: string;
+    avatar?: string;
     level?: string;
   };
 }
@@ -683,40 +685,50 @@ export default function FriendsList({ onRefresh }: FriendsListProps) {
       >
         {friends
           .filter((friend) => friend && friend.id)
-          .map((friend) => (
-            <View key={friend.id} style={styles.friendItem}>
-              <View style={styles.friendInfo}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {(
-                      friend.profile?.displayName ||
-                      friend.displayName ||
-                      friend.firstName ||
-                      friend.email ||
-                      "U"
-                    )
-                      .charAt(0)
-                      .toUpperCase()}
-                  </Text>
+          .map((friend) => {
+            const avatarUri = friend.avatar || friend.profile?.avatar;
+            const friendInitial = (
+              friend.profile?.displayName ||
+              friend.displayName ||
+              friend.firstName ||
+              friend.email ||
+              "U"
+            )
+              .charAt(0)
+              .toUpperCase();
+
+            return (
+              <View key={friend.id} style={styles.friendItem}>
+                <View style={styles.friendInfo}>
+                  <View style={styles.avatar}>
+                    {avatarUri ? (
+                      <Image
+                        source={{ uri: avatarUri }}
+                        style={styles.avatarImage}
+                      />
+                    ) : (
+                      <Text style={styles.avatarText}>{friendInitial}</Text>
+                    )}
+                  </View>
+                  <View style={styles.friendDetails}>
+                    <Text style={styles.friendName}>
+                      {friend.profile?.displayName ||
+                        friend.displayName ||
+                        friend.firstName ||
+                        friend.email ||
+                        "Unknown User"}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.friendDetails}>
-                  <Text style={styles.friendName}>
-                    {friend.profile?.displayName ||
-                      friend.displayName ||
-                      friend.firstName ||
-                      friend.email ||
-                      "Unknown User"}
-                  </Text>
-                </View>
+                <Pressable
+                  style={styles.createGameButton}
+                  onPress={() => handleCreateGame(friend)}
+                >
+                  <Text style={styles.createGameButtonText}>Create Game</Text>
+                </Pressable>
               </View>
-              <Pressable
-                style={styles.createGameButton}
-                onPress={() => handleCreateGame(friend)}
-              >
-                <Text style={styles.createGameButtonText}>Create Game</Text>
-              </Pressable>
-            </View>
-          ))}
+            );
+          })}
       </ScrollView>
 
       {/* Create Game Modal */}
@@ -1171,6 +1183,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginRight: 15,
+    overflow: "hidden",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 25,
   },
   avatarText: {
     color: "#fff",

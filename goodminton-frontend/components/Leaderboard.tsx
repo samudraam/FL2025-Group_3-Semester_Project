@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Alert,
   Pressable,
+  Image,
 } from "react-native";
 import { router } from "expo-router";
 import { usersAPI } from "../services/api";
@@ -27,6 +28,7 @@ interface LeaderboardEntry {
     mixed: number;
   };
   gender: string;
+  avatar?: string | null;
 }
 
 /**
@@ -84,6 +86,7 @@ export default function Leaderboard({
             rating: entry.rating,
             ratings: entry.ratings,
             gender: entry.gender || "unknown",
+            avatar: entry.avatar || entry.profile?.avatar || null,
           })
         );
         setLeaderboard(validatedLeaderboard);
@@ -168,11 +171,25 @@ export default function Leaderboard({
   /**
    * Render profile image or placeholder
    */
-  const ProfileImage = ({ displayName }: { displayName?: string }) => {
+  const ProfileImage = ({
+    displayName,
+    avatarUri,
+  }: {
+    displayName?: string;
+    avatarUri?: string | null;
+  }) => {
     const initial =
       displayName && displayName.length > 0
         ? displayName.charAt(0).toUpperCase()
         : "?";
+
+    if (avatarUri) {
+      return (
+        <View style={styles.profileImageContainer}>
+          <Image source={{ uri: avatarUri }} style={styles.profileImage} />
+        </View>
+      );
+    }
 
     return (
       <View style={styles.profileImageContainer}>
@@ -297,7 +314,10 @@ export default function Leaderboard({
 
                 {/* User Column */}
                 <View style={styles.userColumn}>
-                  <ProfileImage displayName={entry.displayName} />
+                  <ProfileImage
+                    displayName={entry.displayName}
+                    avatarUri={entry.avatar}
+                  />
                   <Text
                     style={[styles.userName, isTopThree && styles.topThreeUser]}
                   >
@@ -436,6 +456,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
+    overflow: "hidden",
+  },
+  profileImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 16,
   },
   profileInitial: {
     fontSize: 14,

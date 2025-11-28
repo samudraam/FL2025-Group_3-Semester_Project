@@ -8,7 +8,8 @@ import {
     Alert,
     TouchableOpacity,
     Pressable,
-    RefreshControl
+    RefreshControl,
+    Image
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -200,9 +201,13 @@ export default function ProfileViewer() {
      */
     const ProfileImage = ({ displayName, avatarUri }: { displayName: string; avatarUri?: string }) => (
         <View style={styles.profileImageContainer}>
-            <Text style={styles.profileInitial}>
-                {displayName.charAt(0).toUpperCase()}
-            </Text>
+            {avatarUri ? (
+                <Image source={{ uri: avatarUri }} style={styles.profileImage} />
+            ) : (
+                <Text style={styles.profileInitial}>
+                    {displayName.charAt(0).toUpperCase()}
+                </Text>
+            )}
         </View>
     );
 
@@ -449,6 +454,12 @@ const styles = StyleSheet.create({
         borderWidth: 5,
         borderColor: '#339933',
         marginBottom: 16,
+        overflow: 'hidden',
+    },
+    profileImage: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 50,
     },
     profileInitial: {
         fontSize: 36,

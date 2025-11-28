@@ -84,6 +84,7 @@ export default function Settings() {
     <View style={styles.container}>
       <ProfileHeader
         username={user?.profile?.displayName || user?.email || "JSONderulo"}
+        profileImageUri={user?.profile?.avatar}
         onSettingsPress={handleSettingsPress}
         onNotificationPress={handleNotificationPress}
         onProfilePress={handleProfilePress}

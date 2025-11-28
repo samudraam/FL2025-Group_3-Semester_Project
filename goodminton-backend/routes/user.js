@@ -3,9 +3,61 @@
  * @description 用户相关的API路由 (API routes for users)
  */
 const express = require("express");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 const router = express.Router();
 const userController = require("../controllers/userController");
 const { authenticateToken } = require("../middleware/auth");
+
+const avatarsDir = path.join(__dirname, "..", "uploads", "avatars");
+if (!fs.existsSync(avatarsDir)) {
+  fs.mkdirSync(avatarsDir, { recursive: true });
+}
+
+const avatarStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, avatarsDir);
+  },
+  filename: (req, file, cb) => {
+    const extension = path.extname(file.originalname || "") || ".jpg";
+    const safeExt = extension.startsWith(".") ? extension : `.jpg`;
+    const ownerId = req.user?.userId || "guest";
+    cb(null, `${ownerId}-${Date.now()}${safeExt}`);
+  },
+});
+
+const avatarUpload = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(
+        new Error(
+          "Invalid file type. Please upload a JPG, PNG, or WEBP image under 2MB."
+        )
+      );
+    }
+  },
+});
+
+const handleAvatarUpload = (req, res, next) => {
+  avatarUpload.single("avatar")(req, res, (error) => {
+    if (error) {
+      console.error("Avatar upload error:", error);
+      return res.status(400).json({
+        success: false,
+        error:
+          error.message ||
+          "Failed to upload avatar. Please ensure the image is under 2MB.",
+      });
+    }
+    next();
+  });
+};
 
 // --- 更新后的好友排行榜路由 ---
 // --- Updated Friend Leaderboard Route ---
@@ -80,6 +132,15 @@ router.get(
   "/:userId/friendship-status",
   authenticateToken,
   userController.checkFriendshipStatus
+);
+
+// @route   PATCH /api/users/profile/avatar
+// @desc    Update the authenticated user's profile avatar
+router.patch(
+  "/profile/avatar",
+  authenticateToken,
+  handleAvatarUpload,
+  userController.updateProfileAvatar
 );
 
 module.exports = router;

@@ -14,13 +14,14 @@ import ProfileSectionCard from "../../components/user-profile/ProfileSectionCard
 import ProfileAvatarCard from "../../components/user-profile/ProfileAvatarCard";
 import ProfileStatBadge from "../../components/user-profile/ProfileStatBadge";
 import ProfileRankingCard from "../../components/user-profile/ProfileRankingCard";
+import { usersAPI } from "../../services/api";
 import { useAuth } from "../../services/authContext";
 
 /**
  * Personal profile screen with avatar controls and headline stats.
  */
 export default function ProfileScreen() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [avatarUri, setAvatarUri] = useState<string | undefined>(
     user?.profile?.avatar
   );
@@ -66,6 +67,8 @@ export default function ProfileScreen() {
 
   const handleImageSelection = useCallback(
     async (source: "camera" | "library") => {
+      const fallbackAvatarUri = user?.profile?.avatar || avatarUri;
+
       try {
         const permission =
           source === "camera"
@@ -96,11 +99,37 @@ export default function ProfileScreen() {
           return;
         }
 
+        const selectedAsset = pickerResult.assets[0];
+
         setIsUploadingAvatar(true);
-        setAvatarUri(pickerResult.assets[0].uri);
-        await new Promise((resolve) => setTimeout(resolve, 600));
+        setAvatarUri(selectedAsset.uri);
+
+        const formData = new FormData();
+        const defaultFileName =
+          selectedAsset.fileName || `avatar-${Date.now()}.jpg`;
+        const inferredMime =
+          selectedAsset.mimeType ||
+          (selectedAsset.uri.toLowerCase().endsWith(".png")
+            ? "image/png"
+            : "image/jpeg");
+
+        formData.append("avatar", {
+          uri: selectedAsset.uri,
+          name: defaultFileName,
+          type: inferredMime,
+        } as any);
+
+        const response = await usersAPI.updateAvatar(formData);
+        const nextUri = response?.avatarUrl || selectedAsset.uri;
+        setAvatarUri(nextUri);
+        await refreshUser();
+        Alert.alert(
+          "Profile updated",
+          "Your profile photo has been refreshed."
+        );
       } catch (error) {
         console.error("Image picker error:", error);
+        setAvatarUri(fallbackAvatarUri);
         Alert.alert(
           "Something went wrong",
           "We couldn't update your profile photo. Please try again."
@@ -109,7 +138,7 @@ export default function ProfileScreen() {
         setIsUploadingAvatar(false);
       }
     },
-    []
+    [avatarUri, refreshUser, user?.profile?.avatar]
   );
 
   const handleChangePhoto = useCallback(() => {
@@ -156,7 +185,9 @@ export default function ProfileScreen() {
             isUploading={isUploadingAvatar}
           />
           <View style={styles.identityBlock}>
-            <Text style={styles.displayName}>{firstName} {lastName}</Text>
+            <Text style={styles.displayName}>
+              {firstName} {lastName}
+            </Text>
             {user?.email ? (
               <Text style={styles.emailText}>{user.email}</Text>
             ) : null}

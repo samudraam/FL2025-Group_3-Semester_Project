@@ -2,10 +2,14 @@
  * @file controllers/userController.js
  * @description 用户相关的业务逻辑控制器 (Controller for user-related business logic)
  */
+const path = require("path");
+const fs = require("fs");
 const User = require("../models/User");
 const Game = require("../models/Game");
 const FriendRequest = require("../models/FriendRequest");
 const socketService = require("../services/socketService");
+
+const uploadsRoot = path.join(__dirname, "..", "uploads");
 
 /**
  * 获取指定用户的公开资料
@@ -84,7 +88,7 @@ exports.getFriendsLeaderboard = async (req, res) => {
     // Find user and populate friends' necessary info
     const currentUser = await User.findById(req.user.userId).populate(
       "friends",
-      `profile.displayName ${ratingField} email gender` // 必须同时获取 gender 和对应的 rating
+      `profile.displayName profile.avatar ${ratingField} email gender` // 必须同时获取 gender 和头像
     );
 
     if (!currentUser) {
@@ -128,6 +132,7 @@ exports.getFriendsLeaderboard = async (req, res) => {
         displayName: p.profile.displayName,
         rating: p.ratings?.[discipline] || 1000, // 返回对应积分
         gender: p.gender,
+        avatar: p.profile?.avatar || null,
       })),
     });
   } catch (error) {
@@ -657,6 +662,67 @@ exports.checkFriendshipStatus = async (req, res) => {
     res.status(500).json({
       success: false,
       error: "Failed to check friendship status.",
+    });
+  }
+};
+
+/**
+ * Update the current user's profile avatar
+ */
+exports.updateProfileAvatar = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: "Avatar image is required.",
+      });
+    }
+
+    const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: "User not found.",
+      });
+    }
+
+    const previousAvatar = user.profile?.avatar;
+    const uploadsSegment = "/uploads/";
+
+    if (previousAvatar && previousAvatar.includes(uploadsSegment)) {
+      const relativePath = previousAvatar.split(uploadsSegment)[1];
+      if (relativePath) {
+        const absolutePath = path.join(uploadsRoot, relativePath);
+        fs.promises
+          .unlink(absolutePath)
+          .catch((error) =>
+            console.warn("Failed to delete previous avatar:", error.message)
+          );
+      }
+    }
+
+    const publicPath = `/uploads/avatars/${req.file.filename}`;
+    const avatarUrl = `${req.protocol}://${req.get("host")}${publicPath}`;
+
+    user.profile.avatar = avatarUrl;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Profile photo updated successfully.",
+      avatarUrl,
+      user: {
+        _id: user._id,
+        email: user.email,
+        profile: user.profile,
+      },
+    });
+  } catch (error) {
+    console.error("Update profile avatar error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to update profile avatar.",
     });
   }
 };

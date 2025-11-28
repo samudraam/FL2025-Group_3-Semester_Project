@@ -155,6 +155,7 @@ export default function Community() {
     <View style={styles.container}>
       <ProfileHeader
         username={user?.profile?.displayName || user?.email || "JSONderulo"}
+        profileImageUri={user?.profile?.avatar}
         onSettingsPress={handleSettingsPress}
         onNotificationPress={handleNotificationPress}
         onMessagePress={handleMessagePress}

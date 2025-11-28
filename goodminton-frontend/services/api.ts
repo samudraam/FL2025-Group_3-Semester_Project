@@ -276,6 +276,18 @@ export const usersAPI = {
     const response = await api.get('/users/search', { params: { q } });
     return response.data;
   },
+
+  /**
+   * Update the authenticated user's profile avatar
+   */
+  updateAvatar: async (formData: FormData) => {
+    const response = await api.patch('/users/profile/avatar', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
 };
 
 // Posts API functions

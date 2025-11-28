@@ -4,6 +4,8 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const cookieParser = require("cookie-parser");
 const http = require("http");
+const path = require("path");
+const fs = require("fs");
 require("dotenv").config();
 
 const connectDB = require("./config/db");
@@ -18,6 +20,13 @@ const socketService = require("./services/socketService");
 // Initialize Express application
 const app = express();
 const server = http.createServer(app);
+
+// Ensure uploads directory exists and expose as static assets
+const uploadsRoot = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadsRoot)) {
+  fs.mkdirSync(uploadsRoot, { recursive: true });
+}
+app.use("/uploads", express.static(uploadsRoot));
 
 // Connect to database
 connectDB();

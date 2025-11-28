@@ -77,6 +77,7 @@ export default function Rankings() {
     <View style={styles.container}>
       <ProfileHeader
         username={user?.profile?.displayName || user?.email}
+        profileImageUri={user?.profile?.avatar}
         onSettingsPress={handleSettingsPress}
         onNotificationPress={handleNotificationPress}
         onMessagePress={handleMessagePress}

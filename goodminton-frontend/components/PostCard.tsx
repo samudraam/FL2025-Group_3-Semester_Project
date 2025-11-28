@@ -1,5 +1,13 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, Modal, Alert } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  Modal,
+  Alert,
+  Image,
+} from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "../services/authContext";
 import { postsAPI } from "../services/api";
@@ -87,6 +95,7 @@ export default function PostCard({
   const authorHandle = post.author.email
     ? `@${post.author.email.split("@")[0]}`
     : "@user";
+  const authorAvatar = post.author.profile?.avatar;
 
   const isOwner =
     user && "id" in user && "id" in post.author
@@ -187,7 +196,14 @@ export default function PostCard({
         <View style={styles.header}>
           <Pressable style={styles.authorSection} onPress={handleAuthorPress}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{authorInitial}</Text>
+              {authorAvatar ? (
+                <Image
+                  source={{ uri: authorAvatar }}
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <Text style={styles.avatarText}>{authorInitial}</Text>
+              )}
             </View>
             <View style={styles.authorInfo}>
               <Text style={styles.authorName}>{authorName}</Text>
@@ -321,6 +337,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
+    overflow: "hidden",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 20,
   },
   avatarText: {
     fontSize: 16,
