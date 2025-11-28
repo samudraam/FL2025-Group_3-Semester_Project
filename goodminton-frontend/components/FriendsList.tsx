@@ -679,10 +679,7 @@ export default function FriendsList({ onRefresh }: FriendsListProps) {
         </Pressable>
       </View>
 
-      <ScrollView
-        style={styles.friendsList}
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={styles.friendsList}>
         {friends
           .filter((friend) => friend && friend.id)
           .map((friend) => {
@@ -729,7 +726,7 @@ export default function FriendsList({ onRefresh }: FriendsListProps) {
               </View>
             );
           })}
-      </ScrollView>
+      </View>
 
       {/* Create Game Modal */}
       <Modal
@@ -1152,9 +1149,11 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans_500Medium",
   },
   friendsList: {
-    flex: 1,
-    padding: 10,
+    width: "100%",
+    paddingHorizontal: 10,
+    paddingTop: 10,
     paddingBottom: 10,
+    gap: 2,
   },
   friendItem: {
     flexDirection: "row",

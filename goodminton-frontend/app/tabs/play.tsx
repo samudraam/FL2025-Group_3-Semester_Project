@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { useAuth } from "../../services/authContext";
 import BottomNavPill from "../../components/BottomNavPill";
 import {
@@ -83,13 +83,17 @@ export default function Play() {
         onProfilePress={handleProfilePress}
       />
 
-      <View style={styles.content}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.titleContainer}>
           <Text style={styles.title}>Play</Text>
         </View>
         <AddFriend />
         <FriendsList />
-      </View>
+      </ScrollView>
 
       <BottomNavPill
         items={navItems}
@@ -107,8 +111,10 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  contentContainer: {
+    paddingBottom: 120,
     paddingTop: 0,
-    paddingBottom: 100,
   },
   titleContainer: {
     backgroundColor: "#A8DADB",
