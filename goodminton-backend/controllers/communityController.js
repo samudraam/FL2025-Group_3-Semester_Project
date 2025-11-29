@@ -3,8 +3,18 @@
  * @description Business logic for managing communities
  */
 const mongoose = require("mongoose");
+const path = require("path");
+const fs = require("fs");
 const Community = require("../models/Community");
 const CommunityMember = require("../models/CommunityMember");
+const User = require("../models/User");
+
+const uploadsRoot = path.join(__dirname, "..", "uploads");
+const communityCoverFolder = path.join(uploadsRoot, "community-covers");
+
+if (!fs.existsSync(communityCoverFolder)) {
+  fs.mkdirSync(communityCoverFolder, { recursive: true });
+}
 
 const COMMUNITY_FIELD_CATALOG = {
   community: [
@@ -12,20 +22,48 @@ const COMMUNITY_FIELD_CATALOG = {
     { key: "name", type: "string", description: "Display name" },
     { key: "slug", type: "string", description: "URL-safe identifier" },
     { key: "description", type: "string", description: "Community summary" },
-    { key: "coverImageUrl", type: "string|null", description: "Hero image URL" },
-    { key: "visibility", type: "'public'|'private'", description: "Controls discoverability" },
-    { key: "joinPolicy", type: "'auto'|'approval'", description: "How members join" },
+    {
+      key: "coverImageUrl",
+      type: "string|null",
+      description: "Hero image URL",
+    },
+    {
+      key: "visibility",
+      type: "'public'|'private'",
+      description: "Controls discoverability",
+    },
+    {
+      key: "joinPolicy",
+      type: "'auto'|'approval'",
+      description: "How members join",
+    },
     { key: "memberCount", type: "number", description: "Active member total" },
     { key: "eventCount", type: "number", description: "Total events created" },
     { key: "postCount", type: "number", description: "Total posts created" },
-    { key: "lastActivityAt", type: "ISO date", description: "Last content timestamp" },
+    {
+      key: "lastActivityAt",
+      type: "ISO date",
+      description: "Last content timestamp",
+    },
     { key: "creator", type: "object", description: "Creator metadata" },
     { key: "createdAt", type: "ISO date", description: "Creation timestamp" },
-    { key: "updatedAt", type: "ISO date", description: "Last update timestamp" },
+    {
+      key: "updatedAt",
+      type: "ISO date",
+      description: "Last update timestamp",
+    },
   ],
   membership: [
-    { key: "role", type: "'owner'|'admin'|'member'", description: "Permission level" },
-    { key: "status", type: "'active'|'pending'|'banned'", description: "Membership state" },
+    {
+      key: "role",
+      type: "'owner'|'admin'|'member'",
+      description: "Permission level",
+    },
+    {
+      key: "status",
+      type: "'active'|'pending'|'banned'",
+      description: "Membership state",
+    },
     { key: "joinedAt", type: "ISO date", description: "Join date" },
   ],
   event: [
@@ -35,12 +73,20 @@ const COMMUNITY_FIELD_CATALOG = {
     { key: "startAt", type: "ISO date", description: "Start time" },
     { key: "endAt", type: "ISO date", description: "End time" },
     { key: "rsvpLimit", type: "number", description: "Maximum attendees" },
-    { key: "visibility", type: "'community'|'public'", description: "Event visibility" },
+    {
+      key: "visibility",
+      type: "'community'|'public'",
+      description: "Event visibility",
+    },
   ],
   post: [
     { key: "content", type: "string", description: "Post body" },
     { key: "mediaUrls", type: "string[]", description: "Attached media" },
-    { key: "visibility", type: "'community'|'public'", description: "Post visibility" },
+    {
+      key: "visibility",
+      type: "'community'|'public'",
+      description: "Post visibility",
+    },
   ],
 };
 
@@ -233,7 +279,9 @@ const createCommunity = async (req, res) => {
 const getCommunityDetails = async (req, res) => {
   try {
     const { identifier } = req.params;
-    const community = await Community.findOne(resolveCommunityFilter(identifier))
+    const community = await Community.findOne(
+      resolveCommunityFilter(identifier)
+    )
       .populate("creator", "profile.displayName profile.avatar")
       .lean();
 
@@ -257,11 +305,7 @@ const getCommunityDetails = async (req, res) => {
     const isCreator = community.creator?._id?.toString() === userId;
     const isActiveMember = membership?.status === "active";
 
-    if (
-      community.visibility === "private" &&
-      !isActiveMember &&
-      !isCreator
-    ) {
+    if (community.visibility === "private" && !isActiveMember && !isCreator) {
       return res.status(403).json({
         success: false,
         error: "Access denied. Community is private.",
@@ -305,14 +349,16 @@ const promoteMemberToAdmin = async (req, res) => {
         .json({ success: false, error: "Invalid target userId." });
     }
 
-    const community = await Community.findOne(resolveCommunityFilter(identifier));
+    const community = await Community.findOne(
+      resolveCommunityFilter(identifier)
+    );
     if (!community) {
       return res
         .status(404)
         .json({ success: false, error: "Community not found." });
     }
 
-    const [actorMembership, targetMembership] = await Promise.all([
+    const [actorMembership, existingTargetMembership] = await Promise.all([
       CommunityMember.findOne({
         community: community._id,
         user: actorId,
@@ -322,6 +368,7 @@ const promoteMemberToAdmin = async (req, res) => {
         user: targetUserId,
       }),
     ]);
+    let targetMembership = existingTargetMembership;
 
     if (!actorMembership || actorMembership.status !== "active") {
       return res.status(403).json({
@@ -337,11 +384,37 @@ const promoteMemberToAdmin = async (req, res) => {
       });
     }
 
-    if (!targetMembership || targetMembership.status !== "active") {
-      return res.status(404).json({
-        success: false,
-        error: "Target user is not an active community member.",
+    if (!targetMembership) {
+      if (actorMembership.role !== "owner") {
+        return res.status(403).json({
+          success: false,
+          error: "Only the community owner can add new admins.",
+        });
+      }
+      const targetExists = await User.exists({ _id: targetUserId });
+      if (!targetExists) {
+        return res.status(404).json({
+          success: false,
+          error: "Target user does not exist.",
+        });
+      }
+      targetMembership = await CommunityMember.create({
+        community: community._id,
+        user: targetUserId,
+        role: "member",
+        status: "active",
+        invitedBy: actorId,
+        joinedAt: new Date(),
       });
+      community.memberCount = (community.memberCount || 0) + 1;
+      community.lastActivityAt = new Date();
+      await community.save();
+    }
+
+    if (targetMembership.status !== "active") {
+      targetMembership.status = "active";
+      targetMembership.joinedAt = targetMembership.joinedAt || new Date();
+      await targetMembership.save();
     }
 
     if (targetMembership.role === "owner") {
@@ -395,7 +468,9 @@ const demoteAdmin = async (req, res) => {
         .json({ success: false, error: "Invalid target userId." });
     }
 
-    const community = await Community.findOne(resolveCommunityFilter(identifier));
+    const community = await Community.findOne(
+      resolveCommunityFilter(identifier)
+    );
     if (!community) {
       return res
         .status(404)
@@ -459,10 +534,42 @@ const demoteAdmin = async (req, res) => {
   }
 };
 
+/**
+ * Upload a standalone community cover image
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ */
+const uploadCommunityCover = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: "Cover image is required.",
+      });
+    }
+
+    const publicPath = `/uploads/community-covers/${req.file.filename}`;
+    const coverImageUrl = `${req.protocol}://${req.get("host")}${publicPath}`;
+
+    return res.status(201).json({
+      success: true,
+      message: "Cover image uploaded successfully.",
+      coverImageUrl,
+      fields: COMMUNITY_FIELD_CATALOG,
+    });
+  } catch (error) {
+    console.error("Upload community cover error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to upload cover image.",
+    });
+  }
+};
+
 module.exports = {
   createCommunity,
   getCommunityDetails,
   promoteMemberToAdmin,
   demoteAdmin,
+  uploadCommunityCover,
 };
-

@@ -60,4 +60,3 @@ const communityEventSchema = new mongoose.Schema(
 communityEventSchema.index({ community: 1, startAt: 1 });
 
 module.exports = mongoose.model("CommunityEvent", communityEventSchema);
-

@@ -1,12 +1,5 @@
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-} from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { useAuth } from "../../services/authContext";
 import BottomNavPill from "../../components/BottomNavPill";
 import {
@@ -20,6 +13,7 @@ import { router } from "expo-router";
 import ProfileHeader from "../../components/ProfileHeader";
 import AddFriend from "../../components/AddFriend";
 import FriendsList from "../../components/FriendsList";
+import CreateCommunityModal from "../../components/CreateCommunityModal";
 
 type CommunitiesSectionProps = {
   onCreatePress: () => void;
@@ -60,6 +54,8 @@ export default function Play() {
   const [activeSection, setActiveSection] = useState<"friends" | "communities">(
     "friends"
   );
+  const [isCreateCommunityVisible, setIsCreateCommunityVisible] =
+    useState(false);
 
   /**
    * Handles navigation between tabs in the bottom navigation pill
@@ -117,11 +113,16 @@ export default function Play() {
     setActiveSection("communities");
   };
 
-  /**
-   * Placeholder action until community creation is available via backend support.
-   */
   const handleCreateCommunityPress = () => {
-    Alert.alert("Coming Soon", "Community creation is on the way!");
+    setIsCreateCommunityVisible(true);
+  };
+
+  const handleCloseCreateCommunity = () => {
+    setIsCreateCommunityVisible(false);
+  };
+
+  const handleCommunityCreated = () => {
+    setActiveSection("communities");
   };
 
   const navItems = [
@@ -213,6 +214,11 @@ export default function Play() {
         items={navItems}
         activeTab={activeTab}
         onTabPress={handleTabPress}
+      />
+      <CreateCommunityModal
+        visible={isCreateCommunityVisible}
+        onClose={handleCloseCreateCommunity}
+        onCreated={handleCommunityCreated}
       />
     </View>
   );
@@ -310,8 +316,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+
   },
   communityHeaderTitle: {
     fontSize: 24,

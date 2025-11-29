@@ -229,6 +229,83 @@ export const gamesAPI = {
   },
 };
 
+export type CommunityVisibility = 'private' | 'public';
+export type CommunityJoinPolicy = 'approval' | 'auto';
+
+export interface CommunitySummary {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  coverImageUrl?: string | null;
+  visibility: CommunityVisibility;
+  joinPolicy: CommunityJoinPolicy;
+  memberCount: number;
+  eventCount?: number;
+  postCount?: number;
+  lastActivityAt?: string;
+  creator?: {
+    id?: string;
+    displayName?: string | null;
+    avatar?: string | null;
+  } | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CommunityMembershipSummary {
+  id?: string;
+  userId?: string;
+  role?: 'owner' | 'admin' | 'member';
+  status?: 'active' | 'pending' | 'invited';
+  joinedAt?: string;
+}
+
+export interface CommunityApiResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+  community?: CommunitySummary;
+  membership?: CommunityMembershipSummary | null;
+  communityId?: string;
+  fields?: Record<string, unknown>;
+}
+
+export interface CreateCommunityPayload {
+  name: string;
+  slug?: string;
+  description?: string;
+  coverImageUrl?: string;
+  visibility: CommunityVisibility;
+}
+
+export const communitiesAPI = {
+  create: async (payload: CreateCommunityPayload): Promise<CommunityApiResponse> => {
+    const response = await api.post('/communities', payload);
+    return response.data;
+  },
+  uploadCover: async (formData: FormData): Promise<{ success: boolean; coverImageUrl?: string; message?: string; error?: string }> => {
+    const response = await api.post('/communities/covers/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+  getDetails: async (identifier: string): Promise<CommunityApiResponse> => {
+    const response = await api.get(`/communities/${identifier}`);
+    return response.data;
+  },
+  promoteAdmin: async (identifier: string, userId: string): Promise<CommunityApiResponse> => {
+    const response = await api.post(`/communities/${identifier}/admins`, { userId });
+    return response.data;
+  },
+  demoteAdmin: async (identifier: string, userId: string): Promise<CommunityApiResponse> => {
+    const response = await api.delete(`/communities/${identifier}/admins/${userId}`);
+    return response.data;
+  },
+};
+
 // Users API functions
 export const usersAPI = {
   /**

@@ -40,4 +40,3 @@ const communityPostSchema = new mongoose.Schema(
 communityPostSchema.index({ community: 1, createdAt: -1 });
 
 module.exports = mongoose.model("CommunityPost", communityPostSchema);
-
