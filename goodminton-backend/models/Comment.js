@@ -1,6 +1,6 @@
 /**
  * @file models/Comment.js
- * @description 评论数据模型 (Mongoose schema for Comments)
+ * @description 评论数据模型 (Mongoose schema for Comments), 新增点赞功能
  */
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
@@ -27,6 +27,11 @@ const commentSchema = new Schema(
       ref: "User",
       required: true,
     },
+    // 新增：点赞用户列表 (List of users who liked the comment)
+    likes: [{
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    }],
   },
   {
     timestamps: true, // 自动添加 createdAt 和 updatedAt
