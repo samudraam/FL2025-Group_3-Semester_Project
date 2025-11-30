@@ -61,6 +61,7 @@ const handleCoverUpload = (req, res, next) => {
 };
 
 router.post("/", authenticateToken, communityController.createCommunity);
+router.get("/mine", authenticateToken, communityController.getUserCommunities);
 router.post(
   "/:identifier/admins",
   authenticateToken,

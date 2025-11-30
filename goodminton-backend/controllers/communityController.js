@@ -193,6 +193,58 @@ const mapMembershipPayload = (membership) => {
 };
 
 /**
+ * Fetch all communities where the authenticated user has an active membership.
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ */
+const getUserCommunities = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res
+        .status(401)
+        .json({ success: false, error: "Unauthorized. Please log in." });
+    }
+
+    const membershipDocs = await CommunityMember.find({
+      user: userId,
+      status: "active",
+    })
+      .populate({
+        path: "community",
+        select:
+          "name slug description coverImageUrl visibility joinPolicy memberCount creator lastActivityAt createdAt updatedAt",
+        populate: {
+          path: "creator",
+          select: "profile.displayName profile.avatar",
+        },
+      })
+      .sort({ joinedAt: -1 })
+      .lean();
+
+    const communities = membershipDocs
+      .filter((membership) => Boolean(membership.community))
+      .map((membership) => ({
+        ...mapCommunityPayload(membership.community),
+        membership: mapMembershipPayload(membership),
+      }));
+
+    return res.status(200).json({
+      success: true,
+      communities,
+      fields: COMMUNITY_FIELD_CATALOG,
+    });
+  } catch (error) {
+    console.error("Get user communities error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to load communities.",
+    });
+  }
+};
+
+/**
  * Create a new community and bootstrap the owner's membership
  * @param {import("express").Request} req
  * @param {import("express").Response} res
@@ -569,6 +621,7 @@ const uploadCommunityCover = async (req, res) => {
 module.exports = {
   createCommunity,
   getCommunityDetails,
+  getUserCommunities,
   promoteMemberToAdmin,
   demoteAdmin,
   uploadCommunityCover,

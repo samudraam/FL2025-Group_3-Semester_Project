@@ -271,6 +271,18 @@ export interface CommunityApiResponse {
   fields?: Record<string, unknown>;
 }
 
+export type UserCommunitySummary = CommunitySummary & {
+  membership?: CommunityMembershipSummary | null;
+};
+
+export interface UserCommunitiesResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+  communities: UserCommunitySummary[];
+  fields?: Record<string, unknown>;
+}
+
 export interface CreateCommunityPayload {
   name: string;
   slug?: string;
@@ -302,6 +314,10 @@ export const communitiesAPI = {
   },
   demoteAdmin: async (identifier: string, userId: string): Promise<CommunityApiResponse> => {
     const response = await api.delete(`/communities/${identifier}/admins/${userId}`);
+    return response.data;
+  },
+  getMine: async (): Promise<UserCommunitiesResponse> => {
+    const response = await api.get('/communities/mine');
     return response.data;
   },
 };

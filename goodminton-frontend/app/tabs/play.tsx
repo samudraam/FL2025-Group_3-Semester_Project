@@ -1,5 +1,11 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+} from "react-native";
 import { useAuth } from "../../services/authContext";
 import BottomNavPill from "../../components/BottomNavPill";
 import {
@@ -14,39 +20,7 @@ import ProfileHeader from "../../components/ProfileHeader";
 import AddFriend from "../../components/AddFriend";
 import FriendsList from "../../components/FriendsList";
 import CreateCommunityModal from "../../components/CreateCommunityModal";
-
-type CommunitiesSectionProps = {
-  onCreatePress: () => void;
-};
-
-/**
- * Renders the placeholder communities UI inside the Play tab until backend
- * endpoints are available.
- */
-const CommunitiesSection = ({ onCreatePress }: CommunitiesSectionProps) => {
-  return (
-    <View>
-      <View style={styles.communityHeaderContainer}>
-        <Text style={styles.communityHeaderTitle}>Build a Community</Text>
-      </View>
-      <View style={styles.communitiesContainer}>
-        <Text style={styles.communitiesDescription}>
-          Discover, join, and build badminton communities. We're preparing the
-          experience now.
-        </Text>
-        <TouchableOpacity
-          style={styles.createCommunityButton}
-          onPress={onCreatePress}
-          accessibilityRole="button"
-          accessibilityLabel="Create a new community"
-          activeOpacity={0.85}
-        >
-          <Text style={styles.createCommunityButtonText}>Create Community</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-};
+import MyCommunities from "../../components/my-communities/MyCommunities";
 
 export default function Play() {
   const { user } = useAuth();
@@ -206,7 +180,7 @@ export default function Play() {
             <FriendsList />
           </>
         ) : (
-          <CommunitiesSection onCreatePress={handleCreateCommunityPress} />
+          <MyCommunities onCreatePress={handleCreateCommunityPress} />
         )}
       </ScrollView>
 
@@ -279,48 +253,5 @@ const styles = StyleSheet.create({
   },
   sectionButtonTextActive: {
     color: "white",
-  },
-  communitiesContainer: {
-    backgroundColor: "white",
-    padding: 20,
-    marginHorizontal: 16,
-    borderRadius: 16,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-    elevation: 2,
-  },
-  communitiesDescription: {
-    fontSize: 16,
-    fontFamily: "DMSans_400Regular",
-    color: "#333",
-    marginBottom: 20,
-    lineHeight: 22,
-  },
-  createCommunityButton: {
-    height: 50,
-    backgroundColor: "#FF8C00",
-    borderRadius: 25,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  createCommunityButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontFamily: "DMSans_700Bold",
-  },
-  communityHeaderContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-
-  },
-  communityHeaderTitle: {
-    fontSize: 24,
-    fontFamily: "DMSans_700Bold",
-    color: "#0E5B37",
   },
 });
