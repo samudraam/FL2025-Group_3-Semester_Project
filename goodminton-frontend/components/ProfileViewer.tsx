@@ -12,7 +12,7 @@ import {
   Image,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { usersAPI } from "../services/api";
 
 /**
@@ -53,6 +53,7 @@ export default function ProfileViewer() {
     userId: string;
     emailOrPhone?: string;
   }>();
+  const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -301,10 +302,17 @@ export default function ProfileViewer() {
   const gamesWon = profile.profile.gamesWon || 0;
   const gamesLost = profile.profile.gamesLost || 0;
 
+  const headerPaddingTop = Math.min((insets.top || 0), 24);
+  
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View
+        style={[
+          styles.header,
+          { paddingTop: headerPaddingTop, paddingBottom: 10},
+        ]}
+      >
         <Pressable style={styles.backButton} onPress={handleGoBack}>
           <Text style={styles.backIcon}>←</Text>
         </Pressable>
@@ -409,7 +417,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f5f5f5",
-    paddingTop: -100,
+    paddingTop: 0,
   },
   header: {
     backgroundColor: "#0E5B37",

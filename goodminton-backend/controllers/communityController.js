@@ -6,6 +6,7 @@ const mongoose = require("mongoose");
 const Community = require("../models/Community");
 const CommunityMember = require("../models/CommunityMember");
 const User = require("../models/User");
+const Post = require("../models/Post");
 const uploadBufferToCloudinary = require("../utils/cloudinaryUpload");
 
 const CLOUDINARY_COVER_FOLDER = "goodminton/community-covers";
@@ -184,6 +185,38 @@ const mapMembershipPayload = (membership) => {
     status: membership.status,
     joinedAt: membership.joinedAt,
   };
+};
+
+/**
+ * Fetch a community document along with the requester's membership (if any)
+ * @param {string} identifier
+ * @param {string|null} userId
+ * @returns {Promise<{community: import("mongoose").Document|null, membership: import("mongoose").Document|null, isCreator: boolean}>}
+ */
+const fetchCommunityContext = async (identifier, userId) => {
+  const community = await Community.findOne(resolveCommunityFilter(identifier));
+
+  if (!community) {
+    return { community: null, membership: null, isCreator: false };
+  }
+
+  if (!userId) {
+    return { community, membership: null, isCreator: false };
+  }
+
+  const membership = await CommunityMember.findOne({
+    community: community._id,
+    user: userId,
+  })
+    .select("role status joinedAt")
+    .lean();
+
+  const creatorId =
+    typeof community.creator === "string"
+      ? community.creator
+      : community.creator?.toString();
+
+  return { community, membership, isCreator: creatorId === userId };
 };
 
 /**
@@ -634,6 +667,158 @@ const uploadCommunityCover = async (req, res) => {
   }
 };
 
+/**
+ * Create a post scoped to a community with visibility rules applied
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ */
+const createCommunityPost = async (req, res) => {
+  try {
+    const { identifier } = req.params;
+    const { title, description, location } = req.body || {};
+    const userId = req.user?.userId;
+
+    const trimmedTitle = typeof title === "string" ? title.trim() : "";
+    const trimmedDescription =
+      typeof description === "string" ? description.trim() : "";
+    const trimmedLocation = typeof location === "string" ? location.trim() : "";
+
+    if (!trimmedTitle) {
+      return res.status(400).json({
+        success: false,
+        error: "Title is required to create a post.",
+      });
+    }
+
+    if (!trimmedDescription) {
+      return res.status(400).json({
+        success: false,
+        error: "Description is required to create a post.",
+      });
+    }
+
+    const { community, membership, isCreator } = await fetchCommunityContext(
+      identifier,
+      userId
+    );
+
+    if (!community) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Community not found." });
+    }
+
+    if (!userId) {
+      return res
+        .status(401)
+        .json({ success: false, error: "Please log in to post." });
+    }
+
+    const isActiveMember = membership?.status === "active";
+    const isBannedMember = membership?.status === "banned";
+    const isPrivateCommunity = community.visibility === "private";
+
+    if (isBannedMember) {
+      return res.status(403).json({
+        success: false,
+        error: "You are not permitted to post in this community.",
+      });
+    }
+
+    if (isPrivateCommunity && !isActiveMember && !isCreator) {
+      return res.status(403).json({
+        success: false,
+        error: "Membership is required to post in a private community.",
+      });
+    }
+
+    const newPost = await Post.create({
+      author: userId,
+      title: trimmedTitle,
+      description: trimmedDescription,
+      location: trimmedLocation || undefined,
+      community: community._id,
+      visibility: "community",
+    });
+
+    await newPost.populate(
+      "author",
+      "profile.displayName profile.avatar email"
+    );
+
+    community.postCount = (community.postCount || 0) + 1;
+    community.lastActivityAt = new Date();
+    await community.save();
+
+    return res.status(201).json({
+      success: true,
+      message: "Post created successfully.",
+      post: newPost,
+    });
+  } catch (error) {
+    console.error("Create community post error:", error);
+    if (error.name === "ValidationError") {
+      return res
+        .status(400)
+        .json({ success: false, error: error.message || "Invalid payload." });
+    }
+    return res.status(500).json({
+      success: false,
+      error: "Failed to create community post.",
+    });
+  }
+};
+
+/**
+ * Retrieve posts scoped to a community honoring visibility rules
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ */
+const getCommunityPosts = async (req, res) => {
+  try {
+    const { identifier } = req.params;
+    const userId = req.user?.userId || null;
+
+    const { community, membership, isCreator } = await fetchCommunityContext(
+      identifier,
+      userId
+    );
+
+    if (!community) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Community not found." });
+    }
+
+    const isActiveMember = membership?.status === "active";
+    const isPrivateCommunity = community.visibility === "private";
+
+    if (isPrivateCommunity && !isActiveMember && !isCreator) {
+      return res.status(403).json({
+        success: false,
+        error: "Access denied. Community is private.",
+      });
+    }
+
+    const posts = await Post.find({ community: community._id })
+      .populate("author", "profile.displayName profile.avatar email")
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      posts,
+    });
+  } catch (error) {
+    console.error("Get community posts error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to load community posts.",
+    });
+  }
+};
+
 module.exports = {
   createCommunity,
   getCommunityDetails,
@@ -641,4 +826,6 @@ module.exports = {
   promoteMemberToAdmin,
   demoteAdmin,
   uploadCommunityCover,
+  createCommunityPost,
+  getCommunityPosts,
 };

@@ -12,13 +12,13 @@ import {
   Platform,
   Pressable,
   RefreshControl,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   View,
   Alert,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft } from "lucide-react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import PostCard, {

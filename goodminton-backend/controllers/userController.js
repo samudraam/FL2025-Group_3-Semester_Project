@@ -16,7 +16,7 @@ const uploadsRoot = path.join(__dirname, "..", "uploads");
 const CLOUDINARY_AVATAR_FOLDER = "goodminton/avatars";
 
 /**
- * Attempt to delete a legacy avatar that was stored on disk.
+ * Attempt to delete a legacy avatar that was stored on disk. (DELETE THIS?)
  * @param {string} avatarUrl
  * @returns {void}
  */

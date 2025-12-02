@@ -405,6 +405,25 @@ export const postsAPI = {
   },
 
   /**
+   * Get posts scoped to a community
+   */
+  getCommunityPosts: async (identifier: string) => {
+    const response = await api.get(`/communities/${identifier}/posts`);
+    return response.data;
+  },
+
+  /**
+   * Create a post scoped to a community
+   */
+  createCommunityPost: async (
+    identifier: string,
+    postData: { title: string; description: string; location?: string }
+  ) => {
+    const response = await api.post(`/communities/${identifier}/posts`, postData);
+    return response.data;
+  },
+
+  /**
    * Create a new post
    */
   createPost: async (postData: {

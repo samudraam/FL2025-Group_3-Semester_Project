@@ -16,18 +16,34 @@ const Comment = require("../models/Comment");
  */
 exports.createPost = async (req, res) => {
   try {
-    const { title, description } = req.body;
+    const { title, description, location } = req.body;
     const authorId = req.user.userId;
 
-    if (!title || !description) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Title and description are required." });
+    const trimmedTitle = typeof title === "string" ? title.trim() : "";
+    const trimmedDescription =
+      typeof description === "string" ? description.trim() : "";
+    const trimmedLocation = typeof location === "string" ? location.trim() : "";
+
+    if (!trimmedTitle || !trimmedDescription) {
+      return res.status(400).json({
+        success: false,
+        error: "Title and description are required.",
+      });
     }
 
-    const newPost = await Post.create({ title, description, author: authorId });
+    const newPost = await Post.create({
+      title: trimmedTitle,
+      description: trimmedDescription,
+      location: trimmedLocation || undefined,
+      author: authorId,
+      community: null,
+      visibility: "public",
+    });
 
-    await newPost.populate("author", "profile.displayName profile.avatar");
+    await newPost.populate(
+      "author",
+      "profile.displayName profile.avatar email"
+    );
 
     res.status(201).json({
       success: true,
@@ -49,8 +65,8 @@ exports.createPost = async (req, res) => {
  */
 exports.getAllPosts = async (req, res) => {
   try {
-    const posts = await Post.find()
-      .populate("author", "profile.displayName profile.avatar")
+    const posts = await Post.find({ community: null })
+      .populate("author", "profile.displayName profile.avatar email")
       .sort({ createdAt: -1 })
       .limit(50);
 
@@ -70,7 +86,7 @@ exports.getPostById = async (req, res) => {
     const postId = req.params.id;
     const post = await Post.findById(postId).populate(
       "author",
-      "profile.displayName profile.avatar"
+      "profile.displayName profile.avatar email"
     );
 
     if (!post) {
@@ -91,7 +107,7 @@ exports.getPostById = async (req, res) => {
 exports.updatePost = async (req, res) => {
   try {
     const postId = req.params.id;
-    const { title, description } = req.body;
+    const { title, description, location } = req.body;
     const userId = req.user.userId;
 
     const post = await Post.findById(postId);
@@ -105,16 +121,23 @@ exports.updatePost = async (req, res) => {
       });
     }
 
-    if (!title || !description) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Title and description are required." });
+    const trimmedTitle = typeof title === "string" ? title.trim() : "";
+    const trimmedDescription =
+      typeof description === "string" ? description.trim() : "";
+    const trimmedLocation = typeof location === "string" ? location.trim() : "";
+
+    if (!trimmedTitle || !trimmedDescription) {
+      return res.status(400).json({
+        success: false,
+        error: "Title and description are required.",
+      });
     }
 
-    post.title = title;
-    post.description = description;
+    post.title = trimmedTitle;
+    post.description = trimmedDescription;
+    post.location = trimmedLocation || null;
     await post.save();
-    await post.populate("author", "profile.displayName profile.avatar");
+    await post.populate("author", "profile.displayName profile.avatar email");
 
     res
       .status(200)
