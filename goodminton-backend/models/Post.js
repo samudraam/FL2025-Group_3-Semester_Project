@@ -14,6 +14,13 @@ const postSchema = new Schema(
       required: true,
       index: true,
     },
+    // 关联的社群 (Linked community)
+    community: {
+      type: Schema.Types.ObjectId,
+      ref: "Community",
+      default: null,
+      index: true,
+    },
     // 帖子标题 (Title of the post)
     title: {
       type: String,
@@ -28,16 +35,37 @@ const postSchema = new Schema(
       trim: true,
       maxlength: 5000,
     },
+    // 位置 (Location, optional)
+    location: {
+      type: String,
+      trim: true,
+      maxlength: 120,
+      default: null,
+    },
+    // 可见性 (Visibility scope)
+    visibility: {
+      type: String,
+      enum: ["public", "community"],
+      default: "public",
+      index: true,
+    },
     // 新增：点赞用户列表 (List of users who liked the post)
-    likes: [{
-      type: Schema.Types.ObjectId,
-      ref: "User",
-    }],
+    likes: {
+      type: [
+        {
+          type: Schema.Types.ObjectId,
+          ref: "User",
+        },
+      ],
+      default: [],
+    },
     // postType: { type: String, enum: ['general', 'event', 'tournament'], default: 'general' },
   },
   {
     timestamps: true, // 自动添加 createdAt 和 updatedAt
   }
 );
+
+postSchema.index({ community: 1, createdAt: -1 });
 
 module.exports = mongoose.model("Post", postSchema);
