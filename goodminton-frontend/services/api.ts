@@ -322,6 +322,17 @@ export const communitiesAPI = {
   },
 };
 
+export interface UpdateAvatarResponse {
+  success: boolean;
+  message: string;
+  avatarUrl: string;
+  user: {
+    _id: string;
+    email: string;
+    profile: Record<string, unknown>;
+  };
+}
+
 // Users API functions
 export const usersAPI = {
   /**
@@ -373,8 +384,8 @@ export const usersAPI = {
   /**
    * Update the authenticated user's profile avatar
    */
-  updateAvatar: async (formData: FormData) => {
-    const response = await api.patch('/users/profile/avatar', formData, {
+  updateAvatar: async (formData: FormData): Promise<UpdateAvatarResponse> => {
+    const response = await api.patch<UpdateAvatarResponse>('/users/profile/avatar', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

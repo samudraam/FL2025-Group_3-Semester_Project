@@ -120,12 +120,12 @@ export default function ProfileScreen() {
         } as any);
 
         const response = await usersAPI.updateAvatar(formData);
-        const nextUri = response?.avatarUrl || selectedAsset.uri;
+        const nextUri = response.avatarUrl || selectedAsset.uri;
         setAvatarUri(nextUri);
         await refreshUser();
         Alert.alert(
           "Profile updated",
-          "Your profile photo has been refreshed."
+          response.message || "Your profile photo has been refreshed."
         );
       } catch (error) {
         console.error("Image picker error:", error);

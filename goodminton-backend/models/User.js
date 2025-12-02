@@ -41,6 +41,7 @@ const userSchema = new mongoose.Schema(
       lastName: String,
       displayName: String,
       avatar: String,
+      avatarPublicId: String,
       level: {
         type: String,
         enum: ["beginner", "intermediate", "advanced", "expert"],
