@@ -4,28 +4,11 @@
  */
 const express = require("express");
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
 const router = express.Router();
 const userController = require("../controllers/userController");
 const { authenticateToken } = require("../middleware/auth");
 
-const avatarsDir = path.join(__dirname, "..", "uploads", "avatars");
-if (!fs.existsSync(avatarsDir)) {
-  fs.mkdirSync(avatarsDir, { recursive: true });
-}
-
-const avatarStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, avatarsDir);
-  },
-  filename: (req, file, cb) => {
-    const extension = path.extname(file.originalname || "") || ".jpg";
-    const safeExt = extension.startsWith(".") ? extension : `.jpg`;
-    const ownerId = req.user?.userId || "guest";
-    cb(null, `${ownerId}-${Date.now()}${safeExt}`);
-  },
-});
+const avatarStorage = multer.memoryStorage();
 
 const avatarUpload = multer({
   storage: avatarStorage,

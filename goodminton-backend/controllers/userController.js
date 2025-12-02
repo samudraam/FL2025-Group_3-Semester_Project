@@ -8,9 +8,42 @@ const User = require("../models/User");
 const Game = require("../models/Game");
 const FriendRequest = require("../models/FriendRequest");
 const socketService = require("../services/socketService");
+<<<<<<< HEAD
 const userService = require("../services/userService");
+=======
+const cloudinary = require("../utils/cloudinary");
+const uploadBufferToCloudinary = require("../utils/cloudinaryUpload");
+>>>>>>> 77c0f70ccfacd8a9bcdedd60c6c75d4a28682bd3
 
 const uploadsRoot = path.join(__dirname, "..", "uploads");
+const CLOUDINARY_AVATAR_FOLDER = "goodminton/avatars";
+
+/**
+ * Attempt to delete a legacy avatar that was stored on disk.
+ * @param {string} avatarUrl
+ * @returns {void}
+ */
+const deleteLegacyAvatarFromDisk = (avatarUrl) => {
+  const uploadsSegment = "/uploads/";
+
+  if (!avatarUrl || !avatarUrl.includes(uploadsSegment)) {
+    return;
+  }
+
+  const relativePath = avatarUrl.split(uploadsSegment)[1];
+
+  if (!relativePath) {
+    return;
+  }
+
+  const absolutePath = path.join(uploadsRoot, relativePath);
+
+  fs.promises
+    .unlink(absolutePath)
+    .catch((error) =>
+      console.warn("Failed to delete previous disk avatar:", error.message)
+    );
+};
 
 /**
  * 获取指定用户的公开资料
@@ -672,7 +705,7 @@ exports.checkFriendshipStatus = async (req, res) => {
  */
 exports.updateProfileAvatar = async (req, res) => {
   try {
-    if (!req.file) {
+    if (!req.file || !req.file.buffer) {
       return res.status(400).json({
         success: false,
         error: "Avatar image is required.",
@@ -688,31 +721,54 @@ exports.updateProfileAvatar = async (req, res) => {
       });
     }
 
-    const previousAvatar = user.profile?.avatar;
-    const uploadsSegment = "/uploads/";
+    let uploadResult;
 
-    if (previousAvatar && previousAvatar.includes(uploadsSegment)) {
-      const relativePath = previousAvatar.split(uploadsSegment)[1];
-      if (relativePath) {
-        const absolutePath = path.join(uploadsRoot, relativePath);
-        fs.promises
-          .unlink(absolutePath)
-          .catch((error) =>
-            console.warn("Failed to delete previous avatar:", error.message)
-          );
-      }
+    try {
+      const ownerId = (req.user?.userId || user._id || "guest").toString();
+
+      uploadResult = await uploadBufferToCloudinary({
+        buffer: req.file.buffer,
+        folder: CLOUDINARY_AVATAR_FOLDER,
+        publicId: `user-${ownerId}-${Date.now()}`,
+        options: {
+          transformation: [
+            { width: 512, height: 512, crop: "fill", gravity: "face" },
+            { quality: "auto", fetch_format: "auto" },
+          ],
+        },
+      });
+    } catch (uploadError) {
+      console.error("Cloudinary avatar upload error:", uploadError);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to upload avatar. Please try again in a moment.",
+      });
     }
 
-    const publicPath = `/uploads/avatars/${req.file.filename}`;
-    const avatarUrl = `${req.protocol}://${req.get("host")}${publicPath}`;
+    const previousAvatarPublicId = user.profile?.avatarPublicId;
+    const previousAvatar = user.profile?.avatar;
 
-    user.profile.avatar = avatarUrl;
+    if (previousAvatarPublicId) {
+      cloudinary.uploader
+        .destroy(previousAvatarPublicId)
+        .catch((destroyError) =>
+          console.warn(
+            "Failed to delete previous Cloudinary avatar:",
+            destroyError.message
+          )
+        );
+    } else if (previousAvatar) {
+      deleteLegacyAvatarFromDisk(previousAvatar);
+    }
+
+    user.profile.avatar = uploadResult.secure_url;
+    user.profile.avatarPublicId = uploadResult.public_id;
     await user.save();
 
     res.status(200).json({
       success: true,
       message: "Profile photo updated successfully.",
-      avatarUrl,
+      avatarUrl: uploadResult.secure_url,
       user: {
         _id: user._id,
         email: user.email,

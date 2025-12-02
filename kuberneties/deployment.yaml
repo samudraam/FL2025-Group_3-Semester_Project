@@ -16,6 +16,18 @@ stringData:
   username: admin
   password: password123
 ---
+#cloudinary secrets
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloudinary-credentials
+  namespace: badminton
+type: Opaque
+stringData:
+  CLOUDINARY_CLOUD_NAME: dunkrraar
+  CLOUDINARY_API_KEY: "526189515332847"
+  CLOUDINARY_API_SECRET: m4M-hdsvJIkfTrNmHnW8-SLyCOs
+---
 #service for mongodb
 apiVersion: v1
 kind: Service
@@ -95,7 +107,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: samudraam/badminton-backend:v1
+          image: samudraam/badminton-backend:v2
           ports:
             - containerPort: 3001
           env:
@@ -115,6 +127,21 @@ spec:
               value: SendGrid
             - name: MONGODB_URI
               value: mongodb://admin:password123@project-draft-db:27017/badmintonapp?authSource=admin
+            - name: CLOUDINARY_CLOUD_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: cloudinary-credentials
+                  key: CLOUDINARY_CLOUD_NAME
+            - name: CLOUDINARY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: cloudinary-credentials
+                  key: CLOUDINARY_API_KEY
+            - name: CLOUDINARY_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: cloudinary-credentials
+                  key: CLOUDINARY_API_SECRET
 ---
 #service for backend
 apiVersion: v1

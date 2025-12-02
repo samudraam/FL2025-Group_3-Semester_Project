@@ -229,6 +229,110 @@ export const gamesAPI = {
   },
 };
 
+export type CommunityVisibility = 'private' | 'public';
+export type CommunityJoinPolicy = 'approval' | 'auto';
+
+export interface CommunitySummary {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  coverImageUrl?: string | null;
+  visibility: CommunityVisibility;
+  joinPolicy: CommunityJoinPolicy;
+  memberCount: number;
+  eventCount?: number;
+  postCount?: number;
+  lastActivityAt?: string;
+  creator?: {
+    id?: string;
+    displayName?: string | null;
+    avatar?: string | null;
+  } | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CommunityMembershipSummary {
+  id?: string;
+  userId?: string;
+  role?: 'owner' | 'admin' | 'member';
+  status?: 'active' | 'pending' | 'invited';
+  joinedAt?: string;
+}
+
+export interface CommunityApiResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+  community?: CommunitySummary;
+  membership?: CommunityMembershipSummary | null;
+  communityId?: string;
+  fields?: Record<string, unknown>;
+}
+
+export type UserCommunitySummary = CommunitySummary & {
+  membership?: CommunityMembershipSummary | null;
+};
+
+export interface UserCommunitiesResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+  communities: UserCommunitySummary[];
+  fields?: Record<string, unknown>;
+}
+
+export interface CreateCommunityPayload {
+  name: string;
+  slug?: string;
+  description?: string;
+  coverImageUrl?: string;
+  visibility: CommunityVisibility;
+}
+
+export const communitiesAPI = {
+  create: async (payload: CreateCommunityPayload): Promise<CommunityApiResponse> => {
+    const response = await api.post('/communities', payload);
+    return response.data;
+  },
+  uploadCover: async (formData: FormData): Promise<{ success: boolean; coverImageUrl?: string; message?: string; error?: string }> => {
+    const response = await api.post('/communities/covers/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+  getDetails: async (identifier: string): Promise<CommunityApiResponse> => {
+    const response = await api.get(`/communities/${identifier}`);
+    return response.data;
+  },
+  promoteAdmin: async (identifier: string, userId: string): Promise<CommunityApiResponse> => {
+    const response = await api.post(`/communities/${identifier}/admins`, { userId });
+    return response.data;
+  },
+  demoteAdmin: async (identifier: string, userId: string): Promise<CommunityApiResponse> => {
+    const response = await api.delete(`/communities/${identifier}/admins/${userId}`);
+    return response.data;
+  },
+  getMine: async (): Promise<UserCommunitiesResponse> => {
+    const response = await api.get('/communities/mine');
+    return response.data;
+  },
+};
+
+export interface UpdateAvatarResponse {
+  success: boolean;
+  message: string;
+  avatarUrl: string;
+  user: {
+    _id: string;
+    email: string;
+    profile: Record<string, unknown>;
+  };
+}
+
 // Users API functions
 export const usersAPI = {
   /**
@@ -280,8 +384,8 @@ export const usersAPI = {
   /**
    * Update the authenticated user's profile avatar
    */
-  updateAvatar: async (formData: FormData) => {
-    const response = await api.patch('/users/profile/avatar', formData, {
+  updateAvatar: async (formData: FormData): Promise<UpdateAvatarResponse> => {
+    const response = await api.patch<UpdateAvatarResponse>('/users/profile/avatar', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -337,6 +441,86 @@ export const postsAPI = {
    */
   getPostById: async (postId: string) => {
     const response = await api.get(`/posts/${postId}`);
+    return response.data;
+  },
+
+  /**
+   * Toggle like state for a post
+   */
+  toggleLike: async (postId: string) => {
+    const response = await api.post(`/posts/${postId}/like`);
+    return response.data;
+  },
+
+  /**
+   * Remove like from a post
+   */
+  unlikePost: async (postId: string) => {
+    const response = await api.post(`/posts/${postId}/unlike`);
+    return response.data;
+  },
+
+  /**
+   * Get the list of users who liked a specific post
+   */
+  getPostLikes: async (postId: string) => {
+    const response = await api.get(`/posts/${postId}/likes`);
+    return response.data;
+  },
+
+  /**
+   * Fetch all comments for a specific post
+   */
+  getComments: async (postId: string) => {
+    const response = await api.get(`/posts/${postId}/comments`);
+    return response.data;
+  },
+
+  /**
+   * Create a new comment on a post
+   */
+  addComment: async (postId: string, content: string) => {
+    const response = await api.post(`/posts/${postId}/comments`, { content });
+    return response.data;
+  },
+
+  /**
+   * Toggle like state for a comment
+   */
+  toggleCommentLike: async (postId: string, commentId: string) => {
+    const response = await api.post(
+      `/posts/${postId}/comments/${commentId}/like`
+    );
+    return response.data;
+  },
+
+  /**
+   * Remove like from a comment
+   */
+  unlikeComment: async (postId: string, commentId: string) => {
+    const response = await api.post(
+      `/posts/${postId}/comments/${commentId}/unlike`
+    );
+    return response.data;
+  },
+
+  /**
+   * Get the list of users who liked a specific comment
+   */
+  getCommentLikes: async (postId: string, commentId: string) => {
+    const response = await api.get(
+      `/posts/${postId}/comments/${commentId}/likes`
+    );
+    return response.data;
+  },
+
+  /**
+   * Delete a specific comment
+   */
+  deleteComment: async (postId: string, commentId: string) => {
+    const response = await api.delete(
+      `/posts/${postId}/comments/${commentId}`
+    );
     return response.data;
   },
 };
