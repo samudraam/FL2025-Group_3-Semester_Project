@@ -11,7 +11,12 @@ import {
   Dimensions,
   Linking,
   Alert,
+  ActivityIndicator,
+  Platform,
+  StatusBar,
 } from "react-native";
+
+const API_BASE_URL = "http://192.168.1.186:3001/api";
 
 type Court = {
   _id: string;
@@ -19,259 +24,313 @@ type Court = {
   address?: string;
   price?: number;
   rating?: number;
-  openingHours?: {
-    open: string;
-    close: string;
-  };
-  courts: number;
-  availableCourts: number;
-  location: {
-    type: string;
-    coordinates: [number, number];
-  };
+  location: { type: string; coordinates: [number, number] };
   contact?: string;
 };
 
-type Props = {
-  court: Court | null;
-  visible: boolean;
-  onClose: () => void;
-  userLocation: {
-    latitude: number;
-    longitude: number;
-  } | null;
-};
+type TimeSlot = { time: string; isBooked: boolean; bookedBy?: string };
+
+type CourtSchedule = { courtId: number; courtName: string; slots: TimeSlot[] };
+
+type Props = { court: Court | null; visible: boolean; onClose: () => void; userLocation: { latitude: number; longitude: number } | null };
 
 const { width } = Dimensions.get("window");
 
+const HOURS = Array.from({ length: 14 }, (_, i) => `${i + 8}:00`); // 8:00 - 21:00
+
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371; // 地球半径 km
+  const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) *
       Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c; // 返回距离（km）
+      Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export default function CourtDetailsModal({
-  court,
-  visible,
-  onClose,
-  userLocation,
-}: Props) {
+export default function CourtDetailsModal({ court, visible, onClose, userLocation }: Props) {
+  const { user } = useAuth();
+  const [selectedRating, setSelectedRating] = useState<number | null>(null);
+  const [schedule, setSchedule] = useState<CourtSchedule[]>([]);
+  const [loadingSchedule, setLoadingSchedule] = useState(false);
+
+  const todayStr = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+
+  useEffect(() => {
+    if (visible && court) loadSchedule();
+  }, [visible, court]);
+
+  const loadSchedule = async () => {
+    if (!court) return;
+    setLoadingSchedule(true);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/reservations/${court._id}`, { params: { date: todayStr } });
+      const bookings: { hour: string; userId: string }[] = response.data.slots || [];
+
+      const slots: TimeSlot[] = HOURS.map((hour) => {
+        const booked = bookings.find((b) => b.hour === hour);
+        return { time: hour, isBooked: !!booked, bookedBy: booked?.userId };
+      });
+
+      setSchedule([{ courtId: 1, courtName: "Court 1", slots }]);
+    } catch (error) {
+      console.error("Failed to load schedule:", error);
+      Alert.alert("Error", "Could not load court availability.");
+    } finally {
+      setLoadingSchedule(false);
+    }
+  };
+
+  const handleBooking = async (time: string) => {
+    if (!user?.id) return Alert.alert("Login Required", "Please login to book a court.");
+    Alert.alert("Confirm Booking", `Book Court 1 at ${time}?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Confirm",
+        onPress: async () => {
+          try {
+            await axios.post(`${API_BASE_URL}/reservations/${court!._id}/create`, {
+              userId: user.id,
+              date: todayStr,
+              hour: time,
+            });
+            Alert.alert("Success", "Booking confirmed!");
+            loadSchedule();
+          } catch (error) {
+            console.error("Booking failed:", error);
+            Alert.alert("Error", "Booking failed. Please try again.");
+          }
+        },
+      },
+    ]);
+  };
+
   if (!court) return null;
 
-  const { user } = useAuth();
-
-  const [selectedRating, setSelectedRating] = useState<number | null>(null);
-  const [userHasRated, setUserHasRated] = useState(false);
-
   const handleCallPress = () => {
-    if (court.contact) {
-      Linking.openURL(`tel:${court.contact}`);
-    }
+    if (court.contact) Linking.openURL(`tel:${court.contact}`);
   };
 
   const distanceText =
     userLocation && court.location?.coordinates
-      ? `${getDistance(
-          userLocation.latitude,
-          userLocation.longitude,
-          court.location.coordinates[1],
-          court.location.coordinates[0]
-        ).toFixed(2)} km`
+      ? `${getDistance(userLocation.latitude, userLocation.longitude, court.location.coordinates[1], court.location.coordinates[0]).toFixed(2)} km`
       : "Unknown";
 
-  // ✅ 处理评分提交
   const handleSubmitRating = async () => {
-    if (!selectedRating) {
-      Alert.alert("Please rate first！");
-      return;
-    }
-
-    if (!user?.id && !user?.id) {
-      Alert.alert("You must be logged in to rate a court.");
-      return;
-    }
+    if (!selectedRating) return Alert.alert("Please select a score!");
+    if (!user?.id) return Alert.alert("Please login first.");
 
     try {
-      // 向后端发送评分请求
-      const res = await axios.post(
-        `http://localhost:3001/api/courts/${court._id}/rate`,
-        { userId: user.id, score: selectedRating }
-      );
-
-      // 返回新的平均分
-      const newRating = res.data.newAverage;
-      Alert.alert("Thanks！", `New Average Rating：${newRating.toFixed(1)}`);
-
-      // 可选：本地更新 court.rating 以即时反映变化
-      court.rating = newRating;
-    } catch (err) {
-      console.error("Rating failed:", err);
-      Alert.alert("Try again later.");
+      const res = await axios.post(`${API_BASE_URL}/courts/${court._id}/rate`, { userId: user.id, score: selectedRating });
+      Alert.alert("Success", `New Rating: ${res.data.newAverage.toFixed(1)}`);
+      court.rating = res.data.newAverage;
+    } catch {
+      Alert.alert("Rating failed, please try again.");
     }
   };
 
   return (
-    <Modal
-      animationType="slide"
-      transparent
-      visible={visible}
-      onRequestClose={onClose}
-    >
-      <View style={styles.overlay}>
-        <View style={styles.container}>
-          {/* Header */}
-          <Text style={styles.title}>{court.name}</Text>
-          {court.address && <Text style={styles.address}>{court.address}</Text>}
-
-          {/* 图片占位 */}
-          <View style={styles.imageGallery}>
-            <Text style={styles.placeholderText}>
-              [Image gallery placeholder]
-            </Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <TouchableOpacity onPress={handleCallPress}>
-              <Text style={styles.phoneText}>
-                📞 Contact: {court.contact ?? " "}
-              </Text>
-            </TouchableOpacity>
-            <Text> 📍 Distance: {distanceText ?? "Unknown"} </Text>
-          </View>
-
-          <Text style={styles.ratingText}>
-            ⭐ Rating: {court.rating?.toFixed(1) ?? "暂无"}
+    <Modal animationType="slide" transparent={false} visible={visible} onRequestClose={onClose}>
+      <View style={[styles.safeAreaContainer, styles.safeAreaPadding]}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onClose} style={styles.backButton}>
+            <Text style={styles.backButtonText}>{"< Back"}</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {court.name}
           </Text>
+          <View style={{ width: 60 }} />
+        </View>
 
-          {/* ⭐ 评分区域 */}
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.infoSection}>
+            {court.address && <Text style={styles.address}>{court.address}</Text>}
+            <View style={styles.infoRow}>
+              <TouchableOpacity onPress={handleCallPress}>
+                <Text style={styles.phoneText}>📞 {court.contact || "No Contact"}</Text>
+              </TouchableOpacity>
+              <Text style={styles.distanceText}>📍 {distanceText}</Text>
+            </View>
+            <Text style={styles.ratingText}>⭐ Rating: {court.rating?.toFixed(1) ?? "N/A"}</Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionTitle}>Book a Court ({todayStr})</Text>
+          {loadingSchedule ? (
+            <ActivityIndicator size="large" color="#0E5B37" style={{ marginTop: 20 }} />
+          ) : (
+            <View style={styles.scheduleContainer}>
+              {schedule[0]?.slots.map((slot, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  disabled={slot.isBooked}
+                  style={[styles.timeSlot, slot.isBooked ? styles.slotBooked : styles.slotAvailable]}
+                  onPress={() => handleBooking(slot.time)}
+                >
+                  <Text style={[styles.timeText, slot.isBooked ? styles.timeTextBooked : styles.timeTextAvailable]}>
+                    {slot.time}
+                  </Text>
+                  <Text style={styles.slotStatusText}>{slot.isBooked ? "Full" : "Book"}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          <View style={styles.divider} />
+
           <View style={styles.ratingContainer}>
-            <Text style={styles.sectionTitle}>Rate for the court</Text>
+            <Text style={styles.sectionTitle}>Rate this place</Text>
             <View style={styles.ratingRow}>
               {[1, 2, 3, 4, 5].map((num) => (
                 <TouchableOpacity
                   key={num}
-                  style={[
-                    styles.ratingButton,
-                    selectedRating === num && styles.ratingSelected,
-                  ]}
+                  style={[styles.ratingButton, selectedRating === num && styles.ratingSelected]}
                   onPress={() => setSelectedRating(num)}
                 >
-                  <Text
-                    style={[
-                      styles.ratingNumber,
-                      selectedRating === num && styles.ratingNumberSelected,
-                    ]}
-                  >
-                    {num}
-                  </Text>
+                  <Text style={[styles.ratingNumber, selectedRating === num && styles.ratingNumberSelected]}>{num}</Text>
                 </TouchableOpacity>
               ))}
             </View>
-            <TouchableOpacity
-              style={styles.submitBtn}
-              onPress={handleSubmitRating}
-            >
-              <Text style={styles.submitText}>Submit</Text>
+            <TouchableOpacity style={styles.submitBtn} onPress={handleSubmitRating}>
+              <Text style={styles.submitText}>Submit Rating</Text>
             </TouchableOpacity>
           </View>
-
-          <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-            <Text style={styles.closeText}>Close</Text>
-          </TouchableOpacity>
-        </View>
+        </ScrollView>
       </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  safeAreaContainer: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
-  },
-  container: {
     backgroundColor: "#fff",
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    padding: 16,
-    maxHeight: "80%",
   },
-  title: {
-    fontSize: 20,
+  safeAreaPadding: {
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 50,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+    backgroundColor: "#fff",
+  },
+  backButton: {
+    padding: 8,
+    width: 60,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: "#0E5B37",
     fontWeight: "600",
-    marginBottom: 4,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+    flex: 1,
+    textAlign: "center",
+  },
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  infoSection: {
+    padding: 16,
   },
   address: {
-    fontSize: 14,
+    fontSize: 16,
     color: "#555",
     marginBottom: 8,
-  },
-  imageGallery: {
-    height: 120,
-    backgroundColor: "#eee",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  placeholderText: {
-    color: "#888",
-    fontStyle: "italic",
   },
   infoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  schedule: {
-    marginBottom: 12,
-  },
-  courtRow: {
-    marginRight: 16,
-  },
-  courtLabel: {
-    marginBottom: 4,
-    fontWeight: "600",
-  },
-  timeSlots: {
-    flexDirection: "row",
+    marginBottom: 8,
+    alignItems: "center",
   },
   phoneText: {
-    color: "#6BCB77",
+    fontSize: 15,
+    color: "#0E5B37",
+    fontWeight: "500",
+  },
+  distanceText: {
+    fontSize: 14,
+    color: "#888",
   },
   ratingText: {
     fontSize: 16,
-    fontWeight: "500",
-    marginBottom: 8,
+    fontWeight: "600",
+    color: "#333",
   },
-  ratingContainer: {
-    marginBottom: 16,
-    alignItems: "center",
+  divider: {
+    height: 8,
+    backgroundColor: "#f5f5f5",
   },
   sectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    margin: 16,
+    marginBottom: 10,
+    color: "#333",
+  },
+  scheduleContainer: {
+    paddingLeft: 16,
+  },
+  timeSlot: {
+    width: 70,
+    height: 60,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+    borderWidth: 1,
+  },
+  slotAvailable: {
+    backgroundColor: "#E8F5E9",
+    borderColor: "#C8E6C9",
+  },
+  slotBooked: {
+    backgroundColor: "#F5F5F5",
+    borderColor: "#E0E0E0",
+  },
+  timeText: {
+    fontSize: 14,
     fontWeight: "600",
-    fontSize: 16,
-    marginBottom: 6,
+    marginBottom: 4,
+  },
+  timeTextAvailable: {
+    color: "#2E7D32",
+  },
+  timeTextBooked: {
+    color: "#BDBDBD",
+    textDecorationLine: "line-through",
+  },
+  slotStatusText: {
+    fontSize: 10,
+    color: "#666",
+  },
+  ratingContainer: {
+    padding: 16,
+    alignItems: "center",
   },
   ratingRow: {
     flexDirection: "row",
     justifyContent: "center",
-    marginBottom: 8,
+    marginBottom: 16,
   },
   ratingButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#ddd",
-    marginHorizontal: 4,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#f0f0f0",
+    marginHorizontal: 6,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -288,22 +347,15 @@ const styles = StyleSheet.create({
   },
   submitBtn: {
     backgroundColor: "#0E5B37",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 25,
+    width: "100%",
+    alignItems: "center",
   },
   submitText: {
     color: "#fff",
-    fontWeight: "600",
-  },
-  closeBtn: {
-    backgroundColor: "#0E5B37",
-    padding: 12,
-    alignItems: "center",
-    borderRadius: 8,
-  },
-  closeText: {
-    color: "#fff",
+    fontSize: 16,
     fontWeight: "600",
   },
 });

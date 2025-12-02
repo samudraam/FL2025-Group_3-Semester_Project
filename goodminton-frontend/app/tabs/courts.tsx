@@ -43,7 +43,7 @@ type Court = {
   };
   contact?: string;
 };
-const API_BASE_URL = "http://localhost:3001"; // ⚠️替换成你的后端 URL
+const API_BASE_URL = "http://192.168.1.186:3001"; // ⚠️替换成你的后端 URL
 
 /**
  * Courts screen - displays a map with user's current location
@@ -413,85 +413,108 @@ export default function Courts() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#f8f9fb",
   },
+
   map: {
     flex: 1,
     marginBottom: -110,
   },
+
+  searchContainer: {
+    position: "absolute",
+    top: 180,
+    left: 10,
+    right: 10,
+    zIndex: 10,
+    backgroundColor: "#ffffff",
+    padding: 12,
+    borderRadius: 14,
+    // 更柔和的现代阴影
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+
+  searchInput: {
+    backgroundColor: "#f2f4f7",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    marginBottom: 10,
+    borderWidth: 0, // 去掉古老的边框
+  },
+
+  radiusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+
+  radiusInput: {
+    backgroundColor: "#f2f4f7",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    width: 70,
+    fontSize: 14,
+    borderWidth: 0,
+  },
+
+  filterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+
+  searchButton: {
+    backgroundColor: "#0E5B37",
+    paddingVertical: 12,
+    borderRadius: 10,
+    shadowColor: "#0E5B37",
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
+  },
+
+  searchButtonText: {
+    color: "#fff",
+    textAlign: "center",
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 16,
+  },
+
   overlay: {
     position: "absolute",
     top: 60,
     left: 20,
     right: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
     padding: 16,
     borderRadius: 8,
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
   },
+
   loadingText: {
     fontSize: 16,
     fontFamily: "DMSans_600SemiBold",
     color: "#0E5B37",
   },
+
   errorText: {
     fontSize: 14,
     fontFamily: "DMSans_400Regular",
     color: "#FF4444",
     textAlign: "center",
-  },
-  searchContainer: {
-    position: "absolute",
-    top: 180, // offset below profile header
-    left: 10,
-    right: 10,
-    zIndex: 10,
-    backgroundColor: "#fff",
-    padding: 8,
-    borderRadius: 8,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  searchInput: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginBottom: 4,
-  },
-  filterRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-around",
-    marginBottom: 4,
-  },
-  radiusRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-start",
-    marginBottom: 6,
-  },
-  radiusInput: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    width: 60,
-  },
-  searchButton: {
-    backgroundColor: "#0E5B37",
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginTop: 6,
-  },
-  searchButtonText: {
-    color: "#fff",
-    textAlign: "center",
-    fontFamily: "DMSans_600SemiBold",
   },
 });
