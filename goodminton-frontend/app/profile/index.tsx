@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
+import { PieChart } from "react-native-gifted-charts";
 import ProfileSectionCard from "../../components/user-profile/ProfileSectionCard";
 import ProfileAvatarCard from "../../components/user-profile/ProfileAvatarCard";
 import ProfileStatBadge from "../../components/user-profile/ProfileStatBadge";
@@ -26,44 +27,53 @@ export default function ProfileScreen() {
     user?.profile?.avatar
   );
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-  const [followingCount, setFollowingCount] = useState<number | null>(null);
 
   const displayName = user?.profile?.displayName || user?.email || "Player";
   const firstName = user?.profile?.firstName || "";
   const lastName = user?.profile?.lastName || "";
   const levelName = user?.profile?.level || "recreational";
-  const rankingPoints = Math.max(1, Math.round(user?.profile?.points || 1200));
-  const matchesPlayed = Math.max(10, Math.round(rankingPoints / 5));
-  const matchesWon = Math.round(matchesPlayed * 0.6);
-  const winRate =
+  const ratingFallback = { singles: 1000, doubles: 1000, mixed: 1000 };
+  const personalRatings = user?.ratings || ratingFallback;
+  const rankingPoints = Math.max(1, Math.round(personalRatings.singles));
+  const stats = user?.stats;
+  const matchesPlayed = Math.max(0, Math.round(stats?.gamesPlayed ?? 0));
+  const matchesWon = Math.max(0, Math.round(stats?.gamesWon ?? 0));
+  const computedWinRate =
     matchesPlayed > 0 ? Math.round((matchesWon / matchesPlayed) * 100) : 0;
+  const winRate = Math.min(
+    100,
+    Math.max(0, Math.round(stats?.winRate ?? computedWinRate))
+  );
+  const matchesLost = Math.max(0, matchesPlayed - matchesWon);
+  const lossRate = Math.max(0, 100 - winRate);
+  const ratingBadges = [
+    { label: "singles rating", value: Math.round(personalRatings.singles) },
+    { label: "doubles rating", value: Math.round(personalRatings.doubles) },
+    { label: "mixed rating", value: Math.round(personalRatings.mixed) },
+  ];
+  const winLossChartData =
+    matchesPlayed > 0
+      ? [
+          {
+            value: matchesWon,
+            color: "#3CBF6D",
+          },
+          {
+            value: matchesLost,
+            color: "#FB7676",
+          },
+        ]
+      : [
+          {
+            value: 1,
+            color: "#C2E3D2",
+            text: "No matches yet",
+          },
+        ];
 
   useEffect(() => {
     setAvatarUri(user?.profile?.avatar);
   }, [user?.profile?.avatar]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadFollowingCount = async () => {
-      try {
-        await new Promise((resolve) => setTimeout(resolve, 400));
-        if (isMounted) {
-          setFollowingCount(0);
-        }
-      } catch (error) {
-        console.error("Failed to load following count:", error);
-        if (isMounted) {
-          setFollowingCount(0);
-        }
-      }
-    };
-
-    loadFollowingCount();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   const handleImageSelection = useCallback(
     async (source: "camera" | "library") => {
@@ -194,23 +204,67 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.statRow}>
             <ProfileStatBadge label="level" value={levelName} />
-            <ProfileStatBadge
-              label="following"
-              value={
-                followingCount === null ? "..." : String(followingCount || 0)
-              }
-            />
           </View>
         </ProfileSectionCard>
 
         <ProfileSectionCard title="Performance overview">
-          <ProfileRankingCard
-            rankPosition={rankingPoints}
-            levelName={levelName}
-            winRate={winRate}
-            matchesPlayed={matchesPlayed}
-            matchesWon={matchesWon}
-          />
+          <View style={styles.performanceContent}>
+            <View style={styles.pieChartBlock}>
+              <PieChart
+                data={winLossChartData}
+                donut
+                radius={80}
+                innerRadius={55}
+                showText
+                textColor="#0E5B37"
+                textSize={11}
+                focusOnPress
+                strokeWidth={2}
+                strokeColor="#ffffff"
+                centerLabelComponent={() => (
+                  <View style={styles.centerLabel}>
+                    <Text style={styles.centerLabelValue}>{winRate}%</Text>
+                    <Text style={styles.centerLabelCaption}>Win rate</Text>
+                  </View>
+                )}
+              />
+              <View style={styles.legendRow}>
+                <View style={styles.legendItem}>
+                  <View
+                    style={[styles.legendDot, { backgroundColor: "#3CBF6D" }]}
+                  />
+                  <Text style={styles.legendText}>Wins {matchesWon}</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View
+                    style={[styles.legendDot, { backgroundColor: "#FB7676" }]}
+                  />
+                  <Text style={styles.legendText}>Losses {matchesLost}</Text>
+                </View>
+              </View>
+            </View>
+            <View style={styles.rankingCardWrapper}>
+              <ProfileRankingCard
+                rankPosition={rankingPoints}
+                levelName={levelName}
+                winRate={winRate}
+                matchesPlayed={matchesPlayed}
+                matchesWon={matchesWon}
+              />
+            </View>
+          </View>
+        </ProfileSectionCard>
+
+        <ProfileSectionCard title="Match ratings">
+          <View style={styles.ratingsRow}>
+            {ratingBadges.map((badge) => (
+              <ProfileStatBadge
+                key={badge.label}
+                label={badge.label}
+                value={String(badge.value)}
+              />
+            ))}
+          </View>
         </ProfileSectionCard>
       </ScrollView>
     </SafeAreaView>
@@ -270,6 +324,62 @@ const styles = StyleSheet.create({
   statRow: {
     flexDirection: "row",
     gap: 12,
+  },
+  performanceContent: {
+    flexDirection: "row",
+    gap: 20,
+    flexWrap: "wrap",
+    alignItems: "center",
+  },
+  pieChartBlock: {
+    flex: 1,
+    minWidth: 220,
+    alignItems: "center",
+  },
+  rankingCardWrapper: {
+    flex: 1,
+    minWidth: 260,
+  },
+  centerLabel: {
+    alignItems: "center",
+  },
+  centerLabelValue: {
+    fontSize: 22,
+    fontFamily: "DMSans_800ExtraBold",
+    color: "#0E5B37",
+  },
+  centerLabelCaption: {
+    fontSize: 12,
+    fontFamily: "DMSans_500Medium",
+    color: "#4C7D69",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  legendRow: {
+    marginTop: 12,
+    width: "100%",
+    gap: 8,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 8,
+  },
+  legendText: {
+    fontSize: 14,
+    fontFamily: "DMSans_500Medium",
+    color: "#0E5B37",
+  },
+  ratingsRow: {
+    flexDirection: "row",
+    gap: 12,
+    flexWrap: "wrap",
   },
   connectionRow: {
     flexDirection: "row",

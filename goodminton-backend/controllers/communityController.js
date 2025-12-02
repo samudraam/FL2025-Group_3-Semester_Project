@@ -864,11 +864,8 @@ const updateCommunityEvent = async (req, res) => {
         .json({ success: false, error: "Please log in to edit events." });
     }
 
-    const { community, membership, isCreator, event } = await resolveEventContext(
-      identifier,
-      eventId,
-      userId
-    );
+    const { community, membership, isCreator, event } =
+      await resolveEventContext(identifier, eventId, userId);
 
     if (!community || !event) {
       return res
@@ -947,7 +944,10 @@ const updateCommunityEvent = async (req, res) => {
 
       const nextStart = new Date(startAt);
       const nextEnd = new Date(endAt);
-      if (Number.isNaN(nextStart.getTime()) || Number.isNaN(nextEnd.getTime())) {
+      if (
+        Number.isNaN(nextStart.getTime()) ||
+        Number.isNaN(nextEnd.getTime())
+      ) {
         return res.status(400).json({
           success: false,
           error: "Start and end times must be valid ISO dates.",
@@ -967,14 +967,9 @@ const updateCommunityEvent = async (req, res) => {
 
     if (rsvpLimit !== undefined) {
       const numericRsvpLimit =
-        typeof rsvpLimit === "number"
-          ? rsvpLimit
-          : parseInt(rsvpLimit, 10);
+        typeof rsvpLimit === "number" ? rsvpLimit : parseInt(rsvpLimit, 10);
 
-      if (
-        Number.isNaN(numericRsvpLimit) ||
-        numericRsvpLimit < 0
-      ) {
+      if (Number.isNaN(numericRsvpLimit) || numericRsvpLimit < 0) {
         return res.status(400).json({
           success: false,
           error: "RSVP limit must be a positive number.",
@@ -1033,11 +1028,8 @@ const deleteCommunityEvent = async (req, res) => {
         .json({ success: false, error: "Please log in to delete events." });
     }
 
-    const { community, membership, isCreator, event } = await resolveEventContext(
-      identifier,
-      eventId,
-      userId
-    );
+    const { community, membership, isCreator, event } =
+      await resolveEventContext(identifier, eventId, userId);
 
     if (!community || !event) {
       return res

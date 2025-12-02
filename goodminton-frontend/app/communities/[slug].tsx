@@ -534,7 +534,9 @@ const CommunityScreen = () => {
               canManage={!!canModerateEvent}
               isActionPending={eventDeleteId === event.id}
               onPressRSVP={() => handleEventRsvpToggle(event)}
-              onEditEvent={canModerateEvent ? handleEventEditRequest : undefined}
+              onEditEvent={
+                canModerateEvent ? handleEventEditRequest : undefined
+              }
               onDeleteEvent={
                 canModerateEvent ? handleEventDeleteRequest : undefined
               }

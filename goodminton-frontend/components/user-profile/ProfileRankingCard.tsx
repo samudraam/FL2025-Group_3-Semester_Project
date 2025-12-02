@@ -13,19 +13,12 @@ interface ProfileRankingCardProps {
 }
 
 const ProfileRankingCard = ({
-  rankPosition,
-  levelName,
+
   winRate,
   matchesPlayed,
   matchesWon,
 }: ProfileRankingCardProps) => (
   <View style={styles.container}>
-    <View style={styles.rankBlock}>
-      <Text style={styles.rankLabel}>Current Rank</Text>
-      <Text style={styles.rankValue}>#{rankPosition}</Text>
-      <Text style={styles.levelLabel}>{levelName}</Text>
-    </View>
-    <View style={styles.divider} />
     <View style={styles.detailBlock}>
       <View style={styles.detailItem}>
         <Text style={styles.detailLabel}>Win Rate</Text>
@@ -82,7 +75,7 @@ const styles = StyleSheet.create({
   },
   detailBlock: {
     flex: 1.2,
-    flexDirection: "column",
+    flexDirection: "row",
     justifyContent: "space-between",
   },
   detailItem: {

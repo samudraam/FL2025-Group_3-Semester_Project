@@ -1,9 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -85,26 +80,23 @@ const EditEventModal: React.FC<EditEventModalProps> = ({
     setCourtError(null);
   }, []);
 
-  const hydrateFromEvent = useCallback(
-    (target: CommunityEventSummary) => {
-      setTitle(target.title ?? "");
-      setDescription(target.description ?? "");
-      setLocation(target.location ?? "");
-      setStartInputs(decomposeDateToInputs(target.startAt));
-      setEndInputs(decomposeDateToInputs(target.endAt));
-      setRsvpLimit(
-        typeof target.rsvpLimit === "number" && target.rsvpLimit > 0
-          ? String(target.rsvpLimit)
-          : ""
-      );
-      setVisibility(target.visibility ?? "community");
-      setLocationMode(target.location ? "custom" : "court");
-      setSelectedCourtId(null);
-      setCourtQuery("");
-      setCourtError(null);
-    },
-    []
-  );
+  const hydrateFromEvent = useCallback((target: CommunityEventSummary) => {
+    setTitle(target.title ?? "");
+    setDescription(target.description ?? "");
+    setLocation(target.location ?? "");
+    setStartInputs(decomposeDateToInputs(target.startAt));
+    setEndInputs(decomposeDateToInputs(target.endAt));
+    setRsvpLimit(
+      typeof target.rsvpLimit === "number" && target.rsvpLimit > 0
+        ? String(target.rsvpLimit)
+        : ""
+    );
+    setVisibility(target.visibility ?? "community");
+    setLocationMode(target.location ? "custom" : "court");
+    setSelectedCourtId(null);
+    setCourtQuery("");
+    setCourtError(null);
+  }, []);
 
   useEffect(() => {
     if (!visible) {
@@ -338,7 +330,11 @@ const EditEventModal: React.FC<EditEventModalProps> = ({
               <Text style={styles.dateTimeLabel}>Start date</Text>
               <View style={styles.dateRow}>
                 <TextInput
-                  style={[styles.input, styles.segmentedInput, styles.yearInput]}
+                  style={[
+                    styles.input,
+                    styles.segmentedInput,
+                    styles.yearInput,
+                  ]}
                   value={startInputs.year}
                   onChangeText={(value) =>
                     handleStartInputChange("year", value, 4)
@@ -350,7 +346,11 @@ const EditEventModal: React.FC<EditEventModalProps> = ({
                   maxLength={4}
                 />
                 <TextInput
-                  style={[styles.input, styles.segmentedInput, styles.dateInput]}
+                  style={[
+                    styles.input,
+                    styles.segmentedInput,
+                    styles.dateInput,
+                  ]}
                   value={startInputs.month}
                   onChangeText={(value) =>
                     handleStartInputChange("month", value, 2)
@@ -362,7 +362,11 @@ const EditEventModal: React.FC<EditEventModalProps> = ({
                   maxLength={2}
                 />
                 <TextInput
-                  style={[styles.input, styles.segmentedInput, styles.dateInput]}
+                  style={[
+                    styles.input,
+                    styles.segmentedInput,
+                    styles.dateInput,
+                  ]}
                   value={startInputs.day}
                   onChangeText={(value) =>
                     handleStartInputChange("day", value, 2)
@@ -377,7 +381,11 @@ const EditEventModal: React.FC<EditEventModalProps> = ({
               <Text style={styles.dateTimeLabel}>Start time</Text>
               <View style={styles.timeRow}>
                 <TextInput
-                  style={[styles.input, styles.segmentedInput, styles.timeInput]}
+                  style={[
+                    styles.input,
+                    styles.segmentedInput,
+                    styles.timeInput,
+                  ]}
                   value={startInputs.hour}
                   onChangeText={(value) =>
                     handleStartInputChange("hour", value, 2)
@@ -390,7 +398,11 @@ const EditEventModal: React.FC<EditEventModalProps> = ({
                 />
                 <Text style={styles.timeSeparator}>:</Text>
                 <TextInput
-                  style={[styles.input, styles.segmentedInput, styles.timeInput]}
+                  style={[
+                    styles.input,
+                    styles.segmentedInput,
+                    styles.timeInput,
+                  ]}
                   value={startInputs.minute}
                   onChangeText={(value) =>
                     handleStartInputChange("minute", value, 2)
@@ -408,7 +420,11 @@ const EditEventModal: React.FC<EditEventModalProps> = ({
               <Text style={styles.dateTimeLabel}>End date</Text>
               <View style={styles.dateRow}>
                 <TextInput
-                  style={[styles.input, styles.segmentedInput, styles.yearInput]}
+                  style={[
+                    styles.input,
+                    styles.segmentedInput,
+                    styles.yearInput,
+                  ]}
                   value={endInputs.year}
                   onChangeText={(value) =>
                     handleEndInputChange("year", value, 4)
@@ -420,7 +436,11 @@ const EditEventModal: React.FC<EditEventModalProps> = ({
                   maxLength={4}
                 />
                 <TextInput
-                  style={[styles.input, styles.segmentedInput, styles.dateInput]}
+                  style={[
+                    styles.input,
+                    styles.segmentedInput,
+                    styles.dateInput,
+                  ]}
                   value={endInputs.month}
                   onChangeText={(value) =>
                     handleEndInputChange("month", value, 2)
@@ -432,7 +452,11 @@ const EditEventModal: React.FC<EditEventModalProps> = ({
                   maxLength={2}
                 />
                 <TextInput
-                  style={[styles.input, styles.segmentedInput, styles.dateInput]}
+                  style={[
+                    styles.input,
+                    styles.segmentedInput,
+                    styles.dateInput,
+                  ]}
                   value={endInputs.day}
                   onChangeText={(value) =>
                     handleEndInputChange("day", value, 2)
@@ -447,7 +471,11 @@ const EditEventModal: React.FC<EditEventModalProps> = ({
               <Text style={styles.dateTimeLabel}>End time</Text>
               <View style={styles.timeRow}>
                 <TextInput
-                  style={[styles.input, styles.segmentedInput, styles.timeInput]}
+                  style={[
+                    styles.input,
+                    styles.segmentedInput,
+                    styles.timeInput,
+                  ]}
                   value={endInputs.hour}
                   onChangeText={(value) =>
                     handleEndInputChange("hour", value, 2)
@@ -460,7 +488,11 @@ const EditEventModal: React.FC<EditEventModalProps> = ({
                 />
                 <Text style={styles.timeSeparator}>:</Text>
                 <TextInput
-                  style={[styles.input, styles.segmentedInput, styles.timeInput]}
+                  style={[
+                    styles.input,
+                    styles.segmentedInput,
+                    styles.timeInput,
+                  ]}
                   value={endInputs.minute}
                   onChangeText={(value) =>
                     handleEndInputChange("minute", value, 2)
@@ -855,5 +887,3 @@ const styles = StyleSheet.create({
 });
 
 export default EditEventModal;
-
-
