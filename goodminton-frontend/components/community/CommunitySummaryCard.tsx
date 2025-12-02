@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
 import {
   ActivityIndicator,
   StyleSheet,
@@ -19,6 +19,7 @@ interface CommunitySummaryCardProps {
   isPending: boolean;
   onPrimaryAction?: () => void;
   isActionLoading?: boolean;
+  membershipRole?: "owner" | "admin" | "member";
 }
 
 /**
@@ -34,8 +35,12 @@ const CommunitySummaryCardComponent = ({
   isPending,
   onPrimaryAction,
   isActionLoading = false,
+  membershipRole,
 }: CommunitySummaryCardProps) => {
   const actionLabel = useMemo(() => {
+    if (membershipRole === "owner") {
+      return "Owner";
+    }
     if (isMember) {
       return "Leave";
     }
@@ -43,14 +48,22 @@ const CommunitySummaryCardComponent = ({
       return "Pending";
     }
     return joinPolicy === "approval" ? "Request to Join" : "Join";
-  }, [isMember, isPending, joinPolicy]);
+  }, [isMember, isPending, joinPolicy, membershipRole]);
 
   const formattedMembers = useMemo(() => {
     return `${Intl.NumberFormat("en-US").format(memberCount)} members`;
   }, [memberCount]);
 
-  const isActionDisabled = isPending || isActionLoading;
+  const isActionDisabled =
+    isPending || isActionLoading || membershipRole === "owner";
   const VisibilityIcon = visibility === "public" ? Globe : Lock;
+
+  const handlePress = useCallback(() => {
+    if (membershipRole === "owner" || isActionDisabled) {
+      return;
+    }
+    onPrimaryAction?.();
+  }, [isActionDisabled, membershipRole, onPrimaryAction]);
 
   return (
     <View style={styles.card}>
@@ -81,7 +94,7 @@ const CommunitySummaryCardComponent = ({
 
       <TouchableOpacity
         style={[styles.ctaButton, isMember ? styles.secondaryCta : undefined]}
-        onPress={onPrimaryAction}
+        onPress={handlePress}
         disabled={isActionDisabled}
         activeOpacity={0.9}
         accessibilityRole="button"

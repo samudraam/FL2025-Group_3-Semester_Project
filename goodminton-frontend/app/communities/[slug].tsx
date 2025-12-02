@@ -31,6 +31,7 @@ import CommunityHeroCard from "../../components/community/CommunityHeroCard";
 import CommunitySummaryCard from "../../components/community/CommunitySummaryCard";
 import CommunityFeedHeader from "../../components/community/CommunityFeedHeader";
 import CreatePostModal from "../../components/CreatePostModal";
+import EditCommunityModal from "../../components/EditCommunityModal";
 import { useAuth } from "../../services/authContext";
 
 const CommunityScreen = () => {
@@ -47,6 +48,7 @@ const CommunityScreen = () => {
   const [events, setEvents] = useState<CommunityEventSummary[]>([]);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
+  const [isEditCommunityVisible, setIsEditCommunityVisible] = useState(false);
   const [isEventLoading, setIsEventLoading] = useState(true);
   const [eventError, setEventError] = useState<string | null>(null);
   const [userEventRsvps, setUserEventRsvps] = useState<Set<string>>(new Set());
@@ -223,6 +225,13 @@ const CommunityScreen = () => {
     if (!community || isActionLoading) {
       return;
     }
+    if (membership?.role === "owner") {
+      Alert.alert(
+        "Owners cannot leave",
+        "Transfer ownership before leaving this community."
+      );
+      return;
+    }
     setIsActionLoading(true);
     membershipTimer.current = setTimeout(() => {
       setMembership((previous) => {
@@ -249,7 +258,33 @@ const CommunityScreen = () => {
       });
       setIsActionLoading(false);
     }, 350);
-  }, [community, isActionLoading]);
+  }, [community, isActionLoading, membership?.role]);
+
+  const handleOpenEditCommunity = useCallback(() => {
+    if (!community) {
+      return;
+    }
+    setIsEditCommunityVisible(true);
+  }, [community]);
+
+  const handleCloseEditCommunity = useCallback(() => {
+    setIsEditCommunityVisible(false);
+  }, []);
+
+  const handleCommunityUpdated = useCallback(
+    (updatedCommunity: CommunitySummary) => {
+      setCommunity(updatedCommunity);
+      loadCommunity();
+    },
+    [loadCommunity]
+  );
+
+  const handleCommunityDeleted = useCallback(() => {
+    setIsEditCommunityVisible(false);
+    setCommunity(null);
+    setMembership(null);
+    router.replace("/tabs/community");
+  }, [router]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -371,6 +406,11 @@ const CommunityScreen = () => {
     [authUser, identifier, isEventInPast, loadEvents, userEventRsvps]
   );
 
+  const isMember = membership?.status === "active";
+  const isPending = membership?.status === "pending";
+  const canManageCommunity =
+    membership?.role === "owner" || membership?.role === "admin";
+
   const renderFeedItem = useCallback(
     ({ item }: { item: FeedItem }) => {
       if (item.kind === "event") {
@@ -406,6 +446,7 @@ const CommunityScreen = () => {
             post={item.data}
             onPostDeleted={loadFeed}
             onPostUpdated={handlePostUpdated}
+            canModerateCommunity={canManageCommunity}
           />
         </View>
       );
@@ -419,6 +460,7 @@ const CommunityScreen = () => {
       handlePostUpdated,
       rsvpLoadingId,
       userEventRsvps,
+      canManageCommunity,
     ]
   );
 
@@ -428,9 +470,6 @@ const CommunityScreen = () => {
     }
     return `post-${item.data._id}`;
   }, []);
-
-  const isMember = membership?.status === "active";
-  const isPending = membership?.status === "pending";
 
   const listHeader = useMemo(() => {
     return (
@@ -443,6 +482,8 @@ const CommunityScreen = () => {
               : "Public group"
           }
           onBackPress={handleBackPress}
+          showManageIcon={canManageCommunity}
+          onPressManage={handleOpenEditCommunity}
         />
         <CommunityHeroCard coverImageUrl={community?.coverImageUrl} />
         <CommunitySummaryCard
@@ -453,6 +494,7 @@ const CommunityScreen = () => {
           memberCount={community?.memberCount}
           isMember={!!isMember}
           isPending={!!isPending}
+          membershipRole={membership?.role}
           onPrimaryAction={handleMembershipToggle}
           isActionLoading={isActionLoading}
         />
@@ -476,6 +518,9 @@ const CommunityScreen = () => {
     isPending,
     isActionLoading,
     canPostToCommunity,
+    canManageCommunity,
+    handleOpenEditCommunity,
+    membership?.role,
   ]);
 
   const listEmptyComponent = useMemo(() => {
@@ -566,6 +611,14 @@ const CommunityScreen = () => {
         onClose={handleCloseComposeModal}
         onPostCreated={handlePostCreated}
         communitySlug={identifier ?? undefined}
+      />
+      <EditCommunityModal
+        visible={isEditCommunityVisible}
+        onClose={handleCloseEditCommunity}
+        community={community}
+        membershipRole={membership?.role}
+        onUpdated={handleCommunityUpdated}
+        onDeleted={handleCommunityDeleted}
       />
     </CommunityScreenLayout>
   );

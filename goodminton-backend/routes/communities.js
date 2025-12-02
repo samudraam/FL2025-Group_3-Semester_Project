@@ -50,6 +50,11 @@ router.post(
   authenticateToken,
   communityController.promoteMemberToAdmin
 );
+router.get(
+  "/:identifier/admins",
+  authenticateToken,
+  communityController.listCommunityAdmins
+);
 router.post(
   "/:identifier/posts",
   authenticateToken,
@@ -84,6 +89,16 @@ router.delete(
   "/:identifier/admins/:userId",
   authenticateToken,
   communityController.demoteAdmin
+);
+router.patch(
+  "/:identifier",
+  authenticateToken,
+  communityController.updateCommunity
+);
+router.delete(
+  "/:identifier",
+  authenticateToken,
+  communityController.deleteCommunity
 );
 router.get(
   "/:identifier",

@@ -9,6 +9,7 @@ const CommunityEventRsvp = require("../models/CommunityEventRsvp");
 const CommunityMember = require("../models/CommunityMember");
 const User = require("../models/User");
 const Post = require("../models/Post");
+const Comment = require("../models/Comment");
 const uploadBufferToCloudinary = require("../utils/cloudinaryUpload");
 
 const CLOUDINARY_COVER_FOLDER = "goodminton/community-covers";
@@ -433,6 +434,239 @@ const createCommunity = async (req, res) => {
     return res
       .status(500)
       .json({ success: false, error: "Failed to create community." });
+  }
+};
+
+/**
+ * Return the list of current admins/owner for a community
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ */
+const listCommunityAdmins = async (req, res) => {
+  try {
+    const { identifier } = req.params;
+    const userId = req.user?.userId || null;
+
+    const { community, membership, isCreator } = await fetchCommunityContext(
+      identifier,
+      userId
+    );
+
+    if (!community) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Community not found." });
+    }
+
+    const isActiveAdmin =
+      isCreator ||
+      (membership?.status === "active" &&
+        ["owner", "admin"].includes(membership?.role || ""));
+
+    if (!isActiveAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: "Only admins can view the admin roster.",
+      });
+    }
+
+    const adminMembers = await CommunityMember.find({
+      community: community._id,
+      status: "active",
+      role: { $in: ["owner", "admin"] },
+    })
+      .populate("user", "profile.displayName profile.avatar email")
+      .sort({ role: -1, joinedAt: 1 })
+      .lean();
+
+    const admins = adminMembers.map((entry) => {
+      const userDoc = entry.user || {};
+      return {
+        id: userDoc._id?.toString() || entry.user?.toString() || null,
+        role: entry.role,
+        displayName:
+          userDoc.profile?.displayName || userDoc.email || "Goodminton player",
+        email: userDoc.email || null,
+        avatar: userDoc.profile?.avatar || null,
+      };
+    });
+
+    return res.status(200).json({ success: true, admins });
+  } catch (error) {
+    console.error("List community admins error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to load community admins.",
+    });
+  }
+};
+
+/**
+ * Permanently delete a community (owner only)
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ */
+const deleteCommunity = async (req, res) => {
+  try {
+    const { identifier } = req.params;
+    const userId = req.user?.userId || null;
+
+    const { community, membership, isCreator } = await fetchCommunityContext(
+      identifier,
+      userId
+    );
+
+    if (!community) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Community not found." });
+    }
+
+    const isOwner =
+      isCreator ||
+      (membership?.status === "active" && membership?.role === "owner");
+
+    if (!isOwner) {
+      return res.status(403).json({
+        success: false,
+        error: "Only the community owner can delete this community.",
+      });
+    }
+
+    const communityId = community._id;
+    const [eventIds, postIds] = await Promise.all([
+      CommunityEvent.find({ community: communityId }).distinct("_id").lean(),
+      Post.find({ community: communityId }).distinct("_id").lean(),
+    ]);
+
+    const deletions = [
+      CommunityMember.deleteMany({ community: communityId }),
+      CommunityEvent.deleteMany({ community: communityId }),
+      Post.deleteMany({ community: communityId }),
+    ];
+
+    if (eventIds.length) {
+      deletions.push(
+        CommunityEventRsvp.deleteMany({ event: { $in: eventIds } })
+      );
+    }
+
+    if (postIds.length) {
+      deletions.push(Comment.deleteMany({ post: { $in: postIds } }));
+    }
+
+    await Promise.all(deletions);
+    await Community.findByIdAndDelete(communityId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Community deleted successfully.",
+    });
+  } catch (error) {
+    console.error("Delete community error:", error);
+    return res
+      .status(500)
+      .json({ success: false, error: "Failed to delete community." });
+  }
+};
+
+/**
+ * Update mutable community properties (owner/admin access only)
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ */
+const updateCommunity = async (req, res) => {
+  try {
+    const { identifier } = req.params;
+    const userId = req.user?.userId || null;
+
+    const { community, membership, isCreator } = await fetchCommunityContext(
+      identifier,
+      userId
+    );
+
+    if (!community) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Community not found." });
+    }
+
+    const isActiveAdmin =
+      membership?.status === "active" &&
+      ["owner", "admin"].includes(membership?.role || "");
+    if (!isCreator && !isActiveAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: "Only admins can update community details.",
+      });
+    }
+
+    const updates = {};
+    const { name, slug, description, coverImageUrl, visibility } =
+      req.body || {};
+
+    if (typeof name === "string") {
+      const trimmedName = name.trim();
+      if (trimmedName.length < 3) {
+        return res.status(400).json({
+          success: false,
+          error: "Community name must be at least 3 characters long.",
+        });
+      }
+      updates.name = trimmedName;
+    }
+
+    if (typeof slug === "string") {
+      const normalizedSlug = normalizeToSlug(slug);
+      if (!normalizedSlug) {
+        return res.status(400).json({
+          success: false,
+          error: "Unable to derive a slug from the provided value.",
+        });
+      }
+      if (normalizedSlug !== community.slug) {
+        updates.slug = await resolveUniqueSlug(normalizedSlug);
+      }
+    }
+
+    if (description !== undefined) {
+      updates.description =
+        typeof description === "string" ? description.trim() : "";
+    }
+
+    if (coverImageUrl !== undefined) {
+      const trimmedCover =
+        typeof coverImageUrl === "string" ? coverImageUrl.trim() : "";
+      updates.coverImageUrl = trimmedCover || null;
+    }
+
+    if (visibility !== undefined) {
+      const normalizedVisibility =
+        visibility === "private" ? "private" : "public";
+      updates.visibility = normalizedVisibility;
+      updates.joinPolicy =
+        normalizedVisibility === "private" ? "approval" : "auto";
+    }
+
+    Object.entries(updates).forEach(([key, value]) => {
+      community[key] = value;
+    });
+
+    community.updatedAt = new Date();
+    await community.save();
+    await community.populate("creator", "profile.displayName profile.avatar");
+
+    return res.status(200).json({
+      success: true,
+      community: mapCommunityPayload(community),
+      membership: mapMembershipPayload(membership),
+      fields: COMMUNITY_FIELD_CATALOG,
+    });
+  } catch (error) {
+    console.error("Update community error:", error);
+    return res
+      .status(500)
+      .json({ success: false, error: "Failed to update community." });
   }
 };
 
@@ -1264,6 +1498,9 @@ const getCommunityPosts = async (req, res) => {
 
 module.exports = {
   createCommunity,
+  updateCommunity,
+  listCommunityAdmins,
+  deleteCommunity,
   createCommunityEvent,
   getCommunityEvents,
   rsvpForEvent,

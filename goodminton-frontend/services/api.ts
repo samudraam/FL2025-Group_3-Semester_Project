@@ -321,9 +321,35 @@ export interface CreateCommunityPayload {
   visibility: CommunityVisibility;
 }
 
+export interface UpdateCommunityPayload {
+  name?: string;
+  slug?: string;
+  description?: string;
+  coverImageUrl?: string | null;
+  visibility?: CommunityVisibility;
+}
+
+export interface CommunityAdminSummary {
+  id: string;
+  role: "owner" | "admin";
+  displayName: string;
+  email?: string | null;
+  avatar?: string | null;
+}
+
 export const communitiesAPI = {
   create: async (payload: CreateCommunityPayload): Promise<CommunityApiResponse> => {
     const response = await api.post('/communities', payload);
+    return response.data;
+  },
+  update: async (identifier: string, payload: UpdateCommunityPayload): Promise<CommunityApiResponse> => {
+    const response = await api.patch(`/communities/${identifier}`, payload);
+    return response.data;
+  },
+  delete: async (
+    identifier: string
+  ): Promise<{ success: boolean; message?: string; error?: string }> => {
+    const response = await api.delete(`/communities/${identifier}`);
     return response.data;
   },
   uploadCover: async (formData: FormData): Promise<{ success: boolean; coverImageUrl?: string; message?: string; error?: string }> => {
@@ -336,6 +362,12 @@ export const communitiesAPI = {
   },
   getDetails: async (identifier: string): Promise<CommunityApiResponse> => {
     const response = await api.get(`/communities/${identifier}`);
+    return response.data;
+  },
+  listAdmins: async (
+    identifier: string
+  ): Promise<{ success: boolean; admins?: CommunityAdminSummary[]; error?: string }> => {
+    const response = await api.get(`/communities/${identifier}/admins`);
     return response.data;
   },
   promoteAdmin: async (identifier: string, userId: string): Promise<CommunityApiResponse> => {
