@@ -1,10 +1,13 @@
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { ArrowLeft } from "lucide-react-native";
+import { ArrowLeft, Settings } from "lucide-react-native";
+
 interface CommunityScreenHeaderProps {
   title: string;
   subtitle?: string;
   onBackPress?: () => void;
+  showManageIcon?: boolean;
+  onPressManage?: () => void;
 }
 
 /**
@@ -14,6 +17,8 @@ const CommunityScreenHeaderComponent = ({
   title,
   subtitle,
   onBackPress,
+  showManageIcon = false,
+  onPressManage,
 }: CommunityScreenHeaderProps) => {
   return (
     <View style={styles.container}>
@@ -24,8 +29,21 @@ const CommunityScreenHeaderComponent = ({
         accessibilityRole="button"
         accessibilityLabel="Navigate back"
       >
-        <Text style={styles.backIcon}><ArrowLeft size={24} color="#0E5B37" /></Text>
+        <Text style={styles.backIcon}>
+          <ArrowLeft size={24} color="#0E5B37" />
+        </Text>
       </TouchableOpacity>
+      {showManageIcon ? (
+        <TouchableOpacity
+          style={styles.manageButton}
+          onPress={onPressManage}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Manage community"
+        >
+          <Settings size={20} color="#0E5B37" />
+        </TouchableOpacity>
+      ) : null}
       <View style={styles.textContainer}>
         <Text style={styles.title}>{title}</Text>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
@@ -53,6 +71,15 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: "#0E5B37",
     lineHeight: 24,
+  },
+  manageButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#E6F1EB",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
   },
   textContainer: {
     flex: 1,

@@ -42,6 +42,7 @@ interface PostCardProps {
   onPostDeleted?: () => void;
   onPostUpdated?: () => void;
   disableCommentsNav?: boolean;
+  canModerateCommunity?: boolean;
 }
 
 /**
@@ -84,6 +85,7 @@ export default function PostCard({
   onPostDeleted,
   onPostUpdated,
   disableCommentsNav,
+  canModerateCommunity = false,
 }: PostCardProps) {
   const { user } = useAuth();
   const [menuModalVisible, setMenuModalVisible] = useState(false);
@@ -118,9 +120,8 @@ export default function PostCard({
   const authorAvatar = post.author.profile?.avatar;
 
   const isOwner =
-    user && "id" in user && "id" in post.author
-      ? user.id === post.author.id
-      : false;
+    user?.id && post.author?._id ? user.id === post.author._id : false;
+  const canDeletePost = isOwner || canModerateCommunity;
 
   const handleAuthorPress = () => {
     router.push({
@@ -414,18 +415,22 @@ export default function PostCard({
             ]}
             onPress={(e) => e.stopPropagation()}
           >
-            {isOwner ? (
+            {canDeletePost ? (
               <>
-                <Pressable
-                  style={styles.menuOption}
-                  onPress={() => {
-                    handleEditPress();
-                  }}
-                  disabled={isDeleting}
-                >
-                  <Text style={styles.menuOptionText}>Edit</Text>
-                </Pressable>
-                <View style={styles.menuDivider} />
+                {isOwner ? (
+                  <>
+                    <Pressable
+                      style={styles.menuOption}
+                      onPress={() => {
+                        handleEditPress();
+                      }}
+                      disabled={isDeleting}
+                    >
+                      <Text style={styles.menuOptionText}>Edit</Text>
+                    </Pressable>
+                    <View style={styles.menuDivider} />
+                  </>
+                ) : null}
                 <Pressable
                   style={styles.menuOption}
                   onPress={() => {

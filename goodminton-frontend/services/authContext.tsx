@@ -13,6 +13,16 @@ interface User {
     level: string;
     points: number;
   };
+  ratings?: {
+    singles: number;
+    doubles: number;
+    mixed: number;
+  };
+  stats?: {
+    gamesPlayed: number;
+    gamesWon: number;
+    winRate: number;
+  };
   isNewUser?: boolean;
 }
 

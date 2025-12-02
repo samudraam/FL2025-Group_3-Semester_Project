@@ -4,9 +4,12 @@
  */
 const mongoose = require("mongoose");
 const Community = require("../models/Community");
+const CommunityEvent = require("../models/CommunityEvent");
+const CommunityEventRsvp = require("../models/CommunityEventRsvp");
 const CommunityMember = require("../models/CommunityMember");
 const User = require("../models/User");
 const Post = require("../models/Post");
+const Comment = require("../models/Comment");
 const uploadBufferToCloudinary = require("../utils/cloudinaryUpload");
 
 const CLOUDINARY_COVER_FOLDER = "goodminton/community-covers";
@@ -188,6 +191,88 @@ const mapMembershipPayload = (membership) => {
 };
 
 /**
+ * Normalize an event document into an API payload
+ * @param {import("mongoose").Document | import("mongoose").LeanDocument<any> | null} eventDoc
+ * @returns {object|null}
+ */
+const mapEventPayload = (eventDoc, extras = {}) => {
+  if (!eventDoc) {
+    return null;
+  }
+
+  const resolveId = (value) => {
+    if (!value) {
+      return null;
+    }
+    if (typeof value === "string") {
+      return value;
+    }
+    if (typeof value.toString === "function") {
+      return value.toString();
+    }
+    return null;
+  };
+
+  const creator = eventDoc.createdBy || null;
+  const creatorPayload =
+    creator && typeof creator === "object"
+      ? {
+          id: resolveId(creator._id || creator),
+          displayName: creator.profile?.displayName || null,
+          avatar: creator.profile?.avatar || null,
+        }
+      : creator
+      ? { id: resolveId(creator) }
+      : null;
+
+  return {
+    id: resolveId(eventDoc._id),
+    communityId: resolveId(eventDoc.community),
+    title: eventDoc.title,
+    description: eventDoc.description,
+    location: eventDoc.location,
+    startAt: eventDoc.startAt,
+    endAt: eventDoc.endAt,
+    rsvpLimit: eventDoc.rsvpLimit,
+    visibility: eventDoc.visibility,
+    createdBy: creatorPayload,
+    createdAt: eventDoc.createdAt,
+    updatedAt: eventDoc.updatedAt,
+    ...extras,
+  };
+};
+
+/**
+ * Resolve the identifier for populated or raw document references.
+ * @param {any} value
+ * @returns {string|null}
+ */
+const resolveDocumentId = (value) => {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (typeof value === "object") {
+    if (value._id) {
+      return value._id.toString();
+    }
+    if (typeof value.toString === "function") {
+      return value.toString();
+    }
+  }
+
+  if (typeof value.toString === "function") {
+    return value.toString();
+  }
+
+  return null;
+};
+
+/**
  * Fetch a community document along with the requester's membership (if any)
  * @param {string} identifier
  * @param {string|null} userId
@@ -217,6 +302,38 @@ const fetchCommunityContext = async (identifier, userId) => {
       : community.creator?.toString();
 
   return { community, membership, isCreator: creatorId === userId };
+};
+
+/**
+ * Resolve event context ensuring it belongs to the requested community
+ * @param {string} identifier
+ * @param {string} eventId
+ * @param {string|null} userId
+ * @returns {Promise<{community: any, membership: any, isCreator: boolean, event: any}>}
+ */
+const resolveEventContext = async (identifier, eventId, userId) => {
+  const context = await fetchCommunityContext(identifier, userId);
+  if (!context.community) {
+    return { ...context, event: null };
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(eventId)) {
+    return { ...context, event: null };
+  }
+
+  const event = await CommunityEvent.findById(eventId);
+  if (!event) {
+    return { ...context, event: null };
+  }
+
+  const communityId = context.community._id?.toString();
+  const eventCommunityId = event.community?.toString();
+
+  if (communityId !== eventCommunityId) {
+    return { ...context, event: null };
+  }
+
+  return { ...context, event };
 };
 
 /**
@@ -347,6 +464,820 @@ const createCommunity = async (req, res) => {
     return res
       .status(500)
       .json({ success: false, error: "Failed to create community." });
+  }
+};
+
+/**
+ * Return the list of current admins/owner for a community
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ */
+const listCommunityAdmins = async (req, res) => {
+  try {
+    const { identifier } = req.params;
+    const userId = req.user?.userId || null;
+
+    const { community, membership, isCreator } = await fetchCommunityContext(
+      identifier,
+      userId
+    );
+
+    if (!community) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Community not found." });
+    }
+
+    const isActiveAdmin =
+      isCreator ||
+      (membership?.status === "active" &&
+        ["owner", "admin"].includes(membership?.role || ""));
+
+    if (!isActiveAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: "Only admins can view the admin roster.",
+      });
+    }
+
+    const adminMembers = await CommunityMember.find({
+      community: community._id,
+      status: "active",
+      role: { $in: ["owner", "admin"] },
+    })
+      .populate("user", "profile.displayName profile.avatar email")
+      .sort({ role: -1, joinedAt: 1 })
+      .lean();
+
+    const admins = adminMembers.map((entry) => {
+      const userDoc = entry.user || {};
+      return {
+        id: userDoc._id?.toString() || entry.user?.toString() || null,
+        role: entry.role,
+        displayName:
+          userDoc.profile?.displayName || userDoc.email || "Goodminton player",
+        email: userDoc.email || null,
+        avatar: userDoc.profile?.avatar || null,
+      };
+    });
+
+    return res.status(200).json({ success: true, admins });
+  } catch (error) {
+    console.error("List community admins error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to load community admins.",
+    });
+  }
+};
+
+/**
+ * Permanently delete a community (owner only)
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ */
+const deleteCommunity = async (req, res) => {
+  try {
+    const { identifier } = req.params;
+    const userId = req.user?.userId || null;
+
+    const { community, membership, isCreator } = await fetchCommunityContext(
+      identifier,
+      userId
+    );
+
+    if (!community) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Community not found." });
+    }
+
+    const isOwner =
+      isCreator ||
+      (membership?.status === "active" && membership?.role === "owner");
+
+    if (!isOwner) {
+      return res.status(403).json({
+        success: false,
+        error: "Only the community owner can delete this community.",
+      });
+    }
+
+    const communityId = community._id;
+    const [eventIds, postIds] = await Promise.all([
+      CommunityEvent.find({ community: communityId }).distinct("_id").lean(),
+      Post.find({ community: communityId }).distinct("_id").lean(),
+    ]);
+
+    const deletions = [
+      CommunityMember.deleteMany({ community: communityId }),
+      CommunityEvent.deleteMany({ community: communityId }),
+      Post.deleteMany({ community: communityId }),
+    ];
+
+    if (eventIds.length) {
+      deletions.push(
+        CommunityEventRsvp.deleteMany({ event: { $in: eventIds } })
+      );
+    }
+
+    if (postIds.length) {
+      deletions.push(Comment.deleteMany({ post: { $in: postIds } }));
+    }
+
+    await Promise.all(deletions);
+    await Community.findByIdAndDelete(communityId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Community deleted successfully.",
+    });
+  } catch (error) {
+    console.error("Delete community error:", error);
+    return res
+      .status(500)
+      .json({ success: false, error: "Failed to delete community." });
+  }
+};
+
+/**
+ * Update mutable community properties (owner/admin access only)
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ */
+const updateCommunity = async (req, res) => {
+  try {
+    const { identifier } = req.params;
+    const userId = req.user?.userId || null;
+
+    const { community, membership, isCreator } = await fetchCommunityContext(
+      identifier,
+      userId
+    );
+
+    if (!community) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Community not found." });
+    }
+
+    const isActiveAdmin =
+      membership?.status === "active" &&
+      ["owner", "admin"].includes(membership?.role || "");
+    if (!isCreator && !isActiveAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: "Only admins can update community details.",
+      });
+    }
+
+    const updates = {};
+    const { name, slug, description, coverImageUrl, visibility } =
+      req.body || {};
+
+    if (typeof name === "string") {
+      const trimmedName = name.trim();
+      if (trimmedName.length < 3) {
+        return res.status(400).json({
+          success: false,
+          error: "Community name must be at least 3 characters long.",
+        });
+      }
+      updates.name = trimmedName;
+    }
+
+    if (typeof slug === "string") {
+      const normalizedSlug = normalizeToSlug(slug);
+      if (!normalizedSlug) {
+        return res.status(400).json({
+          success: false,
+          error: "Unable to derive a slug from the provided value.",
+        });
+      }
+      if (normalizedSlug !== community.slug) {
+        updates.slug = await resolveUniqueSlug(normalizedSlug);
+      }
+    }
+
+    if (description !== undefined) {
+      updates.description =
+        typeof description === "string" ? description.trim() : "";
+    }
+
+    if (coverImageUrl !== undefined) {
+      const trimmedCover =
+        typeof coverImageUrl === "string" ? coverImageUrl.trim() : "";
+      updates.coverImageUrl = trimmedCover || null;
+    }
+
+    if (visibility !== undefined) {
+      const normalizedVisibility =
+        visibility === "private" ? "private" : "public";
+      updates.visibility = normalizedVisibility;
+      updates.joinPolicy =
+        normalizedVisibility === "private" ? "approval" : "auto";
+    }
+
+    Object.entries(updates).forEach(([key, value]) => {
+      community[key] = value;
+    });
+
+    community.updatedAt = new Date();
+    await community.save();
+    await community.populate("creator", "profile.displayName profile.avatar");
+
+    return res.status(200).json({
+      success: true,
+      community: mapCommunityPayload(community),
+      membership: mapMembershipPayload(membership),
+      fields: COMMUNITY_FIELD_CATALOG,
+    });
+  } catch (error) {
+    console.error("Update community error:", error);
+    return res
+      .status(500)
+      .json({ success: false, error: "Failed to update community." });
+  }
+};
+
+/**
+ * Create a community event respecting membership and visibility rules
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ */
+const createCommunityEvent = async (req, res) => {
+  try {
+    const { identifier } = req.params;
+    const {
+      title,
+      description = "",
+      location = "",
+      startAt,
+      endAt,
+      rsvpLimit = 0,
+      visibility = "community",
+    } = req.body || {};
+    const creatorId = req.user?.userId;
+
+    if (!creatorId) {
+      return res
+        .status(401)
+        .json({ success: false, error: "Please log in to create events." });
+    }
+
+    const trimmedTitle = typeof title === "string" ? title.trim() : "";
+    const trimmedDescription =
+      typeof description === "string" ? description.trim() : "";
+    const trimmedLocation = typeof location === "string" ? location.trim() : "";
+
+    if (!trimmedTitle) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Event title is required." });
+    }
+
+    if (!startAt || !endAt) {
+      return res.status(400).json({
+        success: false,
+        error: "Start and end times are required.",
+      });
+    }
+
+    const startDate = new Date(startAt);
+    const endDate = new Date(endAt);
+
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      return res.status(400).json({
+        success: false,
+        error: "Start and end times must be valid ISO dates.",
+      });
+    }
+
+    if (endDate <= startDate) {
+      return res.status(400).json({
+        success: false,
+        error: "End time must be after the start time.",
+      });
+    }
+
+    const numericRsvpLimit =
+      typeof rsvpLimit === "number"
+        ? rsvpLimit
+        : rsvpLimit
+        ? parseInt(rsvpLimit, 10)
+        : 0;
+
+    if (Number.isNaN(numericRsvpLimit) || numericRsvpLimit < 0) {
+      return res.status(400).json({
+        success: false,
+        error: "RSVP limit must be a positive number.",
+      });
+    }
+
+    let normalizedVisibility = visibility === "public" ? "public" : "community";
+
+    const { community, membership, isCreator } = await fetchCommunityContext(
+      identifier,
+      creatorId
+    );
+
+    if (!community) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Community not found." });
+    }
+
+    const isActiveMember = membership?.status === "active";
+    const isBannedMember = membership?.status === "banned";
+    const isPrivateCommunity = community.visibility === "private";
+
+    if (isBannedMember) {
+      return res.status(403).json({
+        success: false,
+        error: "You are not permitted to create events in this community.",
+      });
+    }
+
+    if (!isActiveMember && !isCreator) {
+      return res.status(403).json({
+        success: false,
+        error: "Membership is required to create events.",
+      });
+    }
+
+    if (isPrivateCommunity || !isCreator) {
+      normalizedVisibility = "community";
+    }
+
+    const event = await CommunityEvent.create({
+      community: community._id,
+      title: trimmedTitle,
+      description: trimmedDescription,
+      location: trimmedLocation,
+      startAt: startDate,
+      endAt: endDate,
+      rsvpLimit: numericRsvpLimit,
+      visibility: normalizedVisibility,
+      createdBy: creatorId,
+    });
+
+    await event.populate("createdBy", "profile.displayName profile.avatar");
+
+    await Community.findByIdAndUpdate(community._id, {
+      $inc: { eventCount: 1 },
+      $set: { lastActivityAt: new Date() },
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Event created successfully.",
+      event: mapEventPayload(event, { attendeeCount: 0 }),
+      fields: COMMUNITY_FIELD_CATALOG,
+    });
+  } catch (error) {
+    console.error("Create community event error:", error);
+    if (error.name === "ValidationError") {
+      return res
+        .status(400)
+        .json({ success: false, error: error.message || "Invalid payload." });
+    }
+    return res.status(500).json({
+      success: false,
+      error: "Failed to create community event.",
+    });
+  }
+};
+
+/**
+ * Update a community event (event owner, community owner, or admin only)
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ */
+const updateCommunityEvent = async (req, res) => {
+  try {
+    const { identifier, eventId } = req.params;
+    const userId = req.user?.userId || null;
+
+    if (!userId) {
+      return res
+        .status(401)
+        .json({ success: false, error: "Please log in to edit events." });
+    }
+
+    const { community, membership, isCreator, event } =
+      await resolveEventContext(identifier, eventId, userId);
+
+    if (!community || !event) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Event not found." });
+    }
+
+    const createdById = resolveDocumentId(event.createdBy);
+
+    const isEventOwner = createdById === userId;
+    const isCommunityAdmin =
+      isCreator ||
+      (membership?.status === "active" &&
+        ["owner", "admin"].includes(membership?.role));
+
+    if (!isEventOwner && !isCommunityAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: "You are not authorized to edit this event.",
+      });
+    }
+
+    const {
+      title,
+      description,
+      location,
+      startAt,
+      endAt,
+      rsvpLimit,
+      visibility,
+    } = req.body || {};
+
+    if (title !== undefined) {
+      const trimmedTitle = typeof title === "string" ? title.trim() : "";
+      if (!trimmedTitle) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Event title is required." });
+      }
+      event.title = trimmedTitle;
+    }
+
+    if (description !== undefined) {
+      const trimmedDescription =
+        typeof description === "string" ? description.trim() : "";
+      if (!trimmedDescription) {
+        return res.status(400).json({
+          success: false,
+          error: "Event description is required.",
+        });
+      }
+      event.description = trimmedDescription;
+    }
+
+    if (location !== undefined) {
+      const trimmedLocation =
+        typeof location === "string" ? location.trim() : "";
+      if (!trimmedLocation) {
+        return res.status(400).json({
+          success: false,
+          error: "Event location is required.",
+        });
+      }
+      event.location = trimmedLocation;
+    }
+
+    const hasStartUpdate = startAt !== undefined;
+    const hasEndUpdate = endAt !== undefined;
+    if (hasStartUpdate || hasEndUpdate) {
+      if (!hasStartUpdate || !hasEndUpdate) {
+        return res.status(400).json({
+          success: false,
+          error: "Provide both start and end times when updating the schedule.",
+        });
+      }
+
+      const nextStart = new Date(startAt);
+      const nextEnd = new Date(endAt);
+      if (
+        Number.isNaN(nextStart.getTime()) ||
+        Number.isNaN(nextEnd.getTime())
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: "Start and end times must be valid ISO dates.",
+        });
+      }
+
+      if (nextEnd <= nextStart) {
+        return res.status(400).json({
+          success: false,
+          error: "End time must be after the start time.",
+        });
+      }
+
+      event.startAt = nextStart;
+      event.endAt = nextEnd;
+    }
+
+    if (rsvpLimit !== undefined) {
+      const numericRsvpLimit =
+        typeof rsvpLimit === "number" ? rsvpLimit : parseInt(rsvpLimit, 10);
+
+      if (Number.isNaN(numericRsvpLimit) || numericRsvpLimit < 0) {
+        return res.status(400).json({
+          success: false,
+          error: "RSVP limit must be a positive number.",
+        });
+      }
+
+      event.rsvpLimit = numericRsvpLimit;
+    }
+
+    if (visibility !== undefined) {
+      let normalizedVisibility =
+        visibility === "public" ? "public" : "community";
+
+      if (community.visibility === "private" || !isCreator) {
+        normalizedVisibility = "community";
+      }
+
+      event.visibility = normalizedVisibility;
+    }
+
+    event.updatedAt = new Date();
+    await event.save();
+    await event.populate("createdBy", "profile.displayName profile.avatar");
+
+    const attendeeCount = await CommunityEventRsvp.countDocuments({
+      event: event._id,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Event updated successfully.",
+      event: mapEventPayload(event, { attendeeCount }),
+    });
+  } catch (error) {
+    console.error("Update community event error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to update community event.",
+    });
+  }
+};
+
+/**
+ * Delete a community event (event owner, community owner, or admin only)
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ */
+const deleteCommunityEvent = async (req, res) => {
+  try {
+    const { identifier, eventId } = req.params;
+    const userId = req.user?.userId || null;
+
+    if (!userId) {
+      return res
+        .status(401)
+        .json({ success: false, error: "Please log in to delete events." });
+    }
+
+    const { community, membership, isCreator, event } =
+      await resolveEventContext(identifier, eventId, userId);
+
+    if (!community || !event) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Event not found." });
+    }
+
+    const createdById = resolveDocumentId(event.createdBy);
+
+    const isEventOwner = createdById === userId;
+    const isCommunityAdmin =
+      isCreator ||
+      (membership?.status === "active" &&
+        ["owner", "admin"].includes(membership?.role));
+
+    if (!isEventOwner && !isCommunityAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: "You are not authorized to delete this event.",
+      });
+    }
+
+    await CommunityEventRsvp.deleteMany({ event: event._id });
+    await event.deleteOne();
+
+    await Community.findByIdAndUpdate(community._id, {
+      $inc: { eventCount: -1 },
+      $set: { lastActivityAt: new Date() },
+    });
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Event deleted successfully." });
+  } catch (error) {
+    console.error("Delete community event error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to delete community event.",
+    });
+  }
+};
+
+/**
+ * Retrieve events scoped to a community honoring visibility rules
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ */
+const getCommunityEvents = async (req, res) => {
+  try {
+    const { identifier } = req.params;
+    const userId = req.user?.userId || null;
+
+    const { community, membership, isCreator } = await fetchCommunityContext(
+      identifier,
+      userId
+    );
+
+    if (!community) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Community not found." });
+    }
+
+    const isActiveMember = membership?.status === "active";
+    const isPrivateCommunity = community.visibility === "private";
+
+    if (isPrivateCommunity && !isActiveMember && !isCreator) {
+      return res.status(403).json({
+        success: false,
+        error: "Access denied. Community is private.",
+      });
+    }
+
+    const events = await CommunityEvent.find({ community: community._id })
+      .sort({ startAt: 1 })
+      .populate("createdBy", "profile.displayName profile.avatar")
+      .lean();
+
+    const eventIds = events.map((event) => event._id);
+    const attendeeCounts = new Map();
+
+    if (eventIds.length > 0) {
+      const counts = await CommunityEventRsvp.aggregate([
+        {
+          $match: {
+            event: { $in: eventIds },
+          },
+        },
+        {
+          $group: {
+            _id: "$event",
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+
+      counts.forEach((entry) => {
+        attendeeCounts.set(entry._id.toString(), entry.count);
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      events: events.map((eventDoc) =>
+        mapEventPayload(eventDoc, {
+          attendeeCount: attendeeCounts.get(eventDoc._id.toString()) || 0,
+        })
+      ),
+    });
+  } catch (error) {
+    console.error("Get community events error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to load community events.",
+    });
+  }
+};
+
+/**
+ * RSVP to an event (public events allow any authenticated user, community events require membership)
+ */
+const rsvpForEvent = async (req, res) => {
+  try {
+    const { identifier, eventId } = req.params;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res
+        .status(401)
+        .json({ success: false, error: "Please log in to RSVP." });
+    }
+
+    const { community, membership, isCreator, event } =
+      await resolveEventContext(identifier, eventId, userId);
+
+    if (!community || !event) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Event not found." });
+    }
+
+    const requiresMembership = event.visibility === "community";
+    const isActiveMember = membership?.status === "active";
+
+    if (requiresMembership && !isActiveMember && !isCreator) {
+      return res.status(403).json({
+        success: false,
+        error: "Only community members can RSVP to this event.",
+      });
+    }
+
+    const existing = await CommunityEventRsvp.findOne({
+      event: event._id,
+      user: userId,
+    });
+
+    if (existing) {
+      const attendeeCount = await CommunityEventRsvp.countDocuments({
+        event: event._id,
+      });
+      return res.status(200).json({
+        success: true,
+        message: "You have already RSVP'd for this event.",
+        attendeeCount,
+      });
+    }
+
+    if (event.rsvpLimit && event.rsvpLimit > 0) {
+      const attendeeCount = await CommunityEventRsvp.countDocuments({
+        event: event._id,
+      });
+      if (attendeeCount >= event.rsvpLimit) {
+        return res.status(409).json({
+          success: false,
+          error: "This event has reached its RSVP limit.",
+        });
+      }
+    }
+
+    await CommunityEventRsvp.create({
+      event: event._id,
+      user: userId,
+    });
+
+    const attendeeCount = await CommunityEventRsvp.countDocuments({
+      event: event._id,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "RSVP confirmed.",
+      attendeeCount,
+    });
+  } catch (error) {
+    console.error("RSVP event error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to submit RSVP. Please try again.",
+    });
+  }
+};
+
+/**
+ * Remove the current user's RSVP for an event
+ */
+const cancelEventRsvp = async (req, res) => {
+  try {
+    const { identifier, eventId } = req.params;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res
+        .status(401)
+        .json({ success: false, error: "Please log in to manage RSVPs." });
+    }
+
+    const { community, event } = await resolveEventContext(
+      identifier,
+      eventId,
+      userId
+    );
+
+    if (!community || !event) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Event not found." });
+    }
+
+    await CommunityEventRsvp.findOneAndDelete({
+      event: event._id,
+      user: userId,
+    });
+
+    const attendeeCount = await CommunityEventRsvp.countDocuments({
+      event: event._id,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "RSVP removed.",
+      attendeeCount,
+    });
+  } catch (error) {
+    console.error("Cancel RSVP error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to update RSVP.",
+    });
   }
 };
 
@@ -821,6 +1752,15 @@ const getCommunityPosts = async (req, res) => {
 
 module.exports = {
   createCommunity,
+  updateCommunity,
+  listCommunityAdmins,
+  deleteCommunity,
+  createCommunityEvent,
+  updateCommunityEvent,
+  deleteCommunityEvent,
+  getCommunityEvents,
+  rsvpForEvent,
+  cancelEventRsvp,
   getCommunityDetails,
   getUserCommunities,
   promoteMemberToAdmin,

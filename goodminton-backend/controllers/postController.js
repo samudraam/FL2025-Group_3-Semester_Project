@@ -7,6 +7,8 @@ const mongoose = require("mongoose"); // 引入 mongoose 用于 ObjectId
 const Post = require("../models/Post");
 const User = require("../models/User");
 const Comment = require("../models/Comment");
+const CommunityMember = require("../models/CommunityMember");
+const Community = require("../models/Community");
 
 // --- 帖子 CRUD 功能 ---
 
@@ -161,18 +163,39 @@ exports.deletePost = async (req, res) => {
     if (!post) {
       return res.status(404).json({ success: false, error: "Post not found." });
     }
-    if (post.author.toString() !== userId) {
+
+    const isAuthor = post.author.toString() === userId;
+    let canModerate = isAuthor;
+
+    if (!canModerate && post.community) {
+      const membership = await CommunityMember.findOne({
+        community: post.community,
+        user: userId,
+        status: "active",
+      })
+        .select("role status")
+        .lean();
+      if (membership && ["owner", "admin"].includes(membership.role)) {
+        canModerate = true;
+      }
+    }
+
+    if (!canModerate) {
       return res.status(403).json({
         success: false,
         error: "User not authorized to delete this post.",
       });
     }
 
-    // 1. 删除帖子 (Delete the Post)
     await Post.findByIdAndDelete(postId);
-
-    // 2. 同时也删除该帖子下的所有评论 (Delete all comments for this post)
     await Comment.deleteMany({ post: postId });
+
+    if (post.community) {
+      await Community.findByIdAndUpdate(post.community, {
+        $inc: { postCount: -1 },
+        $set: { lastActivityAt: new Date() },
+      });
+    }
 
     res.status(200).json({
       success: true,

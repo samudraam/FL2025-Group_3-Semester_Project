@@ -50,10 +50,45 @@ router.post(
   authenticateToken,
   communityController.promoteMemberToAdmin
 );
+router.get(
+  "/:identifier/admins",
+  authenticateToken,
+  communityController.listCommunityAdmins
+);
 router.post(
   "/:identifier/posts",
   authenticateToken,
   communityController.createCommunityPost
+);
+router.post(
+  "/:identifier/events",
+  authenticateToken,
+  communityController.createCommunityEvent
+);
+router.get(
+  "/:identifier/events",
+  optionalAuth,
+  communityController.getCommunityEvents
+);
+router.put(
+  "/:identifier/events/:eventId",
+  authenticateToken,
+  communityController.updateCommunityEvent
+);
+router.delete(
+  "/:identifier/events/:eventId",
+  authenticateToken,
+  communityController.deleteCommunityEvent
+);
+router.post(
+  "/:identifier/events/:eventId/rsvp",
+  authenticateToken,
+  communityController.rsvpForEvent
+);
+router.delete(
+  "/:identifier/events/:eventId/rsvp",
+  authenticateToken,
+  communityController.cancelEventRsvp
 );
 router.get(
   "/:identifier/posts",
@@ -64,6 +99,16 @@ router.delete(
   "/:identifier/admins/:userId",
   authenticateToken,
   communityController.demoteAdmin
+);
+router.patch(
+  "/:identifier",
+  authenticateToken,
+  communityController.updateCommunity
+);
+router.delete(
+  "/:identifier",
+  authenticateToken,
+  communityController.deleteCommunity
 );
 router.get(
   "/:identifier",
