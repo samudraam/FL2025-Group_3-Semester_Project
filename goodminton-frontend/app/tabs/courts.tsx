@@ -43,7 +43,7 @@ type Court = {
   };
   contact?: string;
 };
-const API_BASE_URL = "http://192.168.1.186:3001"; // ⚠️替换成你的后端 URL
+const API_BASE_URL = "http://localhost:3001"; // ⚠️替换成你的后端 URL
 
 /**
  * Courts screen - displays a map with user's current location
