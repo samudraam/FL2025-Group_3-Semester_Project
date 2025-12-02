@@ -3,18 +3,12 @@
  * @description Business logic for managing communities
  */
 const mongoose = require("mongoose");
-const path = require("path");
-const fs = require("fs");
 const Community = require("../models/Community");
 const CommunityMember = require("../models/CommunityMember");
 const User = require("../models/User");
+const uploadBufferToCloudinary = require("../utils/cloudinaryUpload");
 
-const uploadsRoot = path.join(__dirname, "..", "uploads");
-const communityCoverFolder = path.join(uploadsRoot, "community-covers");
-
-if (!fs.existsSync(communityCoverFolder)) {
-  fs.mkdirSync(communityCoverFolder, { recursive: true });
-}
+const CLOUDINARY_COVER_FOLDER = "goodminton/community-covers";
 
 const COMMUNITY_FIELD_CATALOG = {
   community: [
@@ -593,20 +587,42 @@ const demoteAdmin = async (req, res) => {
  */
 const uploadCommunityCover = async (req, res) => {
   try {
-    if (!req.file) {
+    if (!req.file || !req.file.buffer) {
       return res.status(400).json({
         success: false,
         error: "Cover image is required.",
       });
     }
 
-    const publicPath = `/uploads/community-covers/${req.file.filename}`;
-    const coverImageUrl = `${req.protocol}://${req.get("host")}${publicPath}`;
+    const uploaderId = (req.user?.userId || "community").toString();
+
+    let uploadResult;
+
+    try {
+      uploadResult = await uploadBufferToCloudinary({
+        buffer: req.file.buffer,
+        folder: CLOUDINARY_COVER_FOLDER,
+        publicId: `community-cover-${uploaderId}-${Date.now()}`,
+        options: {
+          transformation: [
+            { width: 1600, height: 900, crop: "fill", gravity: "auto" },
+            { quality: "auto", fetch_format: "auto" },
+          ],
+        },
+      });
+    } catch (cloudinaryError) {
+      console.error("Cloudinary cover upload error:", cloudinaryError);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to upload cover image. Please retry shortly.",
+      });
+    }
 
     return res.status(201).json({
       success: true,
       message: "Cover image uploaded successfully.",
-      coverImageUrl,
+      coverImageUrl: uploadResult.secure_url,
+      coverPublicId: uploadResult.public_id,
       fields: COMMUNITY_FIELD_CATALOG,
     });
   } catch (error) {

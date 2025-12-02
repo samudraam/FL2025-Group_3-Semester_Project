@@ -4,47 +4,15 @@
  */
 const path = require("path");
 const fs = require("fs");
-const streamifier = require("streamifier");
 const User = require("../models/User");
 const Game = require("../models/Game");
 const FriendRequest = require("../models/FriendRequest");
 const socketService = require("../services/socketService");
 const cloudinary = require("../utils/cloudinary");
+const uploadBufferToCloudinary = require("../utils/cloudinaryUpload");
 
 const uploadsRoot = path.join(__dirname, "..", "uploads");
 const CLOUDINARY_AVATAR_FOLDER = "goodminton/avatars";
-
-/**
- * Upload a buffer to Cloudinary and resolve with the API response.
- * @param {Buffer} buffer
- * @param {string} ownerId
- * @returns {Promise<import("cloudinary").UploadApiResponse>}
- */
-const uploadAvatarBuffer = (buffer, ownerId) =>
-  new Promise((resolve, reject) => {
-    const sanitizedOwner = ownerId ? ownerId.toString() : "guest";
-    const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        folder: CLOUDINARY_AVATAR_FOLDER,
-        public_id: `user-${sanitizedOwner}-${Date.now()}`,
-        resource_type: "image",
-        overwrite: true,
-        transformation: [
-          { width: 512, height: 512, crop: "fill", gravity: "face" },
-          { quality: "auto", fetch_format: "auto" },
-        ],
-      },
-      (error, result) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(result);
-        }
-      }
-    );
-
-    streamifier.createReadStream(buffer).pipe(uploadStream);
-  });
 
 /**
  * Attempt to delete a legacy avatar that was stored on disk.
@@ -752,10 +720,19 @@ exports.updateProfileAvatar = async (req, res) => {
     let uploadResult;
 
     try {
-      uploadResult = await uploadAvatarBuffer(
-        req.file.buffer,
-        req.user?.userId || user._id?.toString()
-      );
+      const ownerId = (req.user?.userId || user._id || "guest").toString();
+
+      uploadResult = await uploadBufferToCloudinary({
+        buffer: req.file.buffer,
+        folder: CLOUDINARY_AVATAR_FOLDER,
+        publicId: `user-${ownerId}-${Date.now()}`,
+        options: {
+          transformation: [
+            { width: 512, height: 512, crop: "fill", gravity: "face" },
+            { quality: "auto", fetch_format: "auto" },
+          ],
+        },
+      });
     } catch (uploadError) {
       console.error("Cloudinary avatar upload error:", uploadError);
       return res.status(500).json({

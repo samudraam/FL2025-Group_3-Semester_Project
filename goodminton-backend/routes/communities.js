@@ -4,29 +4,12 @@
  */
 const express = require("express");
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
 const communityController = require("../controllers/communityController");
 const { authenticateToken, optionalAuth } = require("../middleware/auth");
 
 const router = express.Router();
 
-const coversDir = path.join(__dirname, "..", "uploads", "community-covers");
-if (!fs.existsSync(coversDir)) {
-  fs.mkdirSync(coversDir, { recursive: true });
-}
-
-const coverStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, coversDir);
-  },
-  filename: (req, file, cb) => {
-    const extension = path.extname(file.originalname || "") || ".jpg";
-    const safeExtension = extension.startsWith(".") ? extension : ".jpg";
-    const ownerId = req.user?.userId || "community";
-    cb(null, `${ownerId}-cover-${Date.now()}${safeExtension}`);
-  },
-});
+const coverStorage = multer.memoryStorage();
 
 const coverUpload = multer({
   storage: coverStorage,
