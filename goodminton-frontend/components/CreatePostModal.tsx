@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -26,6 +26,68 @@ interface CreatePostModalProps {
 
 type CreatorMode = "post" | "event";
 type LocationMode = "court" | "custom";
+type DateTimeInputs = {
+  year: string;
+  month: string;
+  day: string;
+  hour: string;
+  minute: string;
+};
+
+const createEmptyDateTimeInputs = (): DateTimeInputs => ({
+  year: "",
+  month: "",
+  day: "",
+  hour: "",
+  minute: "",
+});
+
+/**
+ * Keeps only numeric characters and limits the length of a date fragment.
+ */
+const sanitizeNumericInput = (value: string, maxLength: number) => {
+  return value.replace(/\D/g, "").slice(0, maxLength);
+};
+
+/**
+ * Builds a valid Date object from segmented date/time inputs or returns null.
+ */
+const buildDateFromInputs = (inputs: DateTimeInputs) => {
+  const { year, month, day, hour, minute } = inputs;
+  if (!year || !month || !day || !hour || !minute) {
+    return null;
+  }
+
+  const yearNum = Number(year);
+  const monthNum = Number(month);
+  const dayNum = Number(day);
+  const hourNum = Number(hour);
+  const minuteNum = Number(minute);
+
+  if (
+    Number.isNaN(yearNum) ||
+    Number.isNaN(monthNum) ||
+    Number.isNaN(dayNum) ||
+    Number.isNaN(hourNum) ||
+    Number.isNaN(minuteNum)
+  ) {
+    return null;
+  }
+
+  const date = new Date(yearNum, monthNum - 1, dayNum, hourNum, minuteNum);
+
+  if (
+    date.getFullYear() !== yearNum ||
+    date.getMonth() !== monthNum - 1 ||
+    date.getDate() !== dayNum ||
+    date.getHours() !== hourNum ||
+    date.getMinutes() !== minuteNum
+  ) {
+    return null;
+  }
+
+  return date;
+};
 
 /**
  * Modal component for creating either a standard post or a community event.
@@ -42,8 +104,12 @@ export default function CreatePostModal({
   const [location, setLocation] = useState("");
   const [creatorMode, setCreatorMode] = useState<CreatorMode>("post");
   const [locationMode, setLocationMode] = useState<LocationMode>("court");
-  const [startAt, setStartAt] = useState("");
-  const [endAt, setEndAt] = useState("");
+  const [startInputs, setStartInputs] = useState<DateTimeInputs>(() =>
+    createEmptyDateTimeInputs()
+  );
+  const [endInputs, setEndInputs] = useState<DateTimeInputs>(() =>
+    createEmptyDateTimeInputs()
+  );
   const [rsvpLimit, setRsvpLimit] = useState("");
   const [visibility, setVisibility] = useState<"community" | "public">(
     "community"
@@ -54,6 +120,76 @@ export default function CreatePostModal({
   const [courtQuery, setCourtQuery] = useState("");
   const [selectedCourtId, setSelectedCourtId] = useState<string | null>(null);
   const [courtError, setCourtError] = useState<string | null>(null);
+
+  const handleStartYearChange = useCallback((value: string) => {
+    setStartInputs((prev) => ({
+      ...prev,
+      year: sanitizeNumericInput(value, 4),
+    }));
+  }, []);
+
+  const handleStartMonthChange = useCallback((value: string) => {
+    setStartInputs((prev) => ({
+      ...prev,
+      month: sanitizeNumericInput(value, 2),
+    }));
+  }, []);
+
+  const handleStartDayChange = useCallback((value: string) => {
+    setStartInputs((prev) => ({
+      ...prev,
+      day: sanitizeNumericInput(value, 2),
+    }));
+  }, []);
+
+  const handleStartHourChange = useCallback((value: string) => {
+    setStartInputs((prev) => ({
+      ...prev,
+      hour: sanitizeNumericInput(value, 2),
+    }));
+  }, []);
+
+  const handleStartMinuteChange = useCallback((value: string) => {
+    setStartInputs((prev) => ({
+      ...prev,
+      minute: sanitizeNumericInput(value, 2),
+    }));
+  }, []);
+
+  const handleEndYearChange = useCallback((value: string) => {
+    setEndInputs((prev) => ({
+      ...prev,
+      year: sanitizeNumericInput(value, 4),
+    }));
+  }, []);
+
+  const handleEndMonthChange = useCallback((value: string) => {
+    setEndInputs((prev) => ({
+      ...prev,
+      month: sanitizeNumericInput(value, 2),
+    }));
+  }, []);
+
+  const handleEndDayChange = useCallback((value: string) => {
+    setEndInputs((prev) => ({
+      ...prev,
+      day: sanitizeNumericInput(value, 2),
+    }));
+  }, []);
+
+  const handleEndHourChange = useCallback((value: string) => {
+    setEndInputs((prev) => ({
+      ...prev,
+      hour: sanitizeNumericInput(value, 2),
+    }));
+  }, []);
+
+  const handleEndMinuteChange = useCallback((value: string) => {
+    setEndInputs((prev) => ({
+      ...prev,
+      minute: sanitizeNumericInput(value, 2),
+    }));
+  }, []);
 
   useEffect(() => {
     if (!visible) {
@@ -92,8 +228,8 @@ export default function CreatePostModal({
     setLocation("");
     setCreatorMode("post");
     setLocationMode("court");
-    setStartAt("");
-    setEndAt("");
+    setStartInputs(createEmptyDateTimeInputs());
+    setEndInputs(createEmptyDateTimeInputs());
     setRsvpLimit("");
     setVisibility("community");
     setSelectedCourtId(null);
@@ -158,18 +294,13 @@ export default function CreatePostModal({
       return;
     }
 
-    if (!startAt.trim() || !endAt.trim()) {
-      Alert.alert("Error", "Please provide both start and end times.");
-      return;
-    }
+    const startDate = buildDateFromInputs(startInputs);
+    const endDate = buildDateFromInputs(endInputs);
 
-    const startDate = new Date(startAt);
-    const endDate = new Date(endAt);
-
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    if (!startDate || !endDate) {
       Alert.alert(
         "Error",
-        "Please enter valid dates in ISO format (e.g. 2025-05-01T18:30)."
+        "Please provide complete and valid start/end date and time."
       );
       return;
     }
@@ -349,22 +480,165 @@ export default function CreatePostModal({
             {creatorMode === "event" && (
               <>
                 <Text style={styles.sectionLabel}>Event schedule</Text>
-                <TextInput
-                  style={styles.input}
-                  value={startAt}
-                  onChangeText={setStartAt}
-                  placeholder="Start (YYYY-MM-DDTHH:mm)"
-                  placeholderTextColor="#949494"
-                  editable={!isSubmitting}
-                />
-                <TextInput
-                  style={styles.input}
-                  value={endAt}
-                  onChangeText={setEndAt}
-                  placeholder="End (YYYY-MM-DDTHH:mm)"
-                  placeholderTextColor="#949494"
-                  editable={!isSubmitting}
-                />
+                <View style={styles.dateTimeBlock}>
+                  <Text style={styles.dateTimeLabel}>Start date</Text>
+                  <View style={styles.dateRow}>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        styles.segmentedInput,
+                        styles.yearInput,
+                      ]}
+                      value={startInputs.year}
+                      onChangeText={handleStartYearChange}
+                      placeholder="YYYY"
+                      placeholderTextColor="#949494"
+                      keyboardType="number-pad"
+                      maxLength={4}
+                      editable={!isSubmitting}
+                    />
+                    <TextInput
+                      style={[
+                        styles.input,
+                        styles.segmentedInput,
+                        styles.dateInput,
+                      ]}
+                      value={startInputs.month}
+                      onChangeText={handleStartMonthChange}
+                      placeholder="MM"
+                      placeholderTextColor="#949494"
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      editable={!isSubmitting}
+                    />
+                    <TextInput
+                      style={[
+                        styles.input,
+                        styles.segmentedInput,
+                        styles.dateInput,
+                      ]}
+                      value={startInputs.day}
+                      onChangeText={handleStartDayChange}
+                      placeholder="DD"
+                      placeholderTextColor="#949494"
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      editable={!isSubmitting}
+                    />
+                  </View>
+                  <Text style={styles.dateTimeLabel}>Start time</Text>
+                  <View style={styles.timeRow}>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        styles.segmentedInput,
+                        styles.timeInput,
+                      ]}
+                      value={startInputs.hour}
+                      onChangeText={handleStartHourChange}
+                      placeholder="HH"
+                      placeholderTextColor="#949494"
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      editable={!isSubmitting}
+                    />
+                    <Text style={styles.timeSeparator}>:</Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        styles.segmentedInput,
+                        styles.timeInput,
+                      ]}
+                      value={startInputs.minute}
+                      onChangeText={handleStartMinuteChange}
+                      placeholder="MM"
+                      placeholderTextColor="#949494"
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      editable={!isSubmitting}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.dateTimeBlock}>
+                  <Text style={styles.dateTimeLabel}>End date</Text>
+                  <View style={styles.dateRow}>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        styles.segmentedInput,
+                        styles.yearInput,
+                      ]}
+                      value={endInputs.year}
+                      onChangeText={handleEndYearChange}
+                      placeholder="YYYY"
+                      placeholderTextColor="#949494"
+                      keyboardType="number-pad"
+                      maxLength={4}
+                      editable={!isSubmitting}
+                    />
+                    <TextInput
+                      style={[
+                        styles.input,
+                        styles.segmentedInput,
+                        styles.dateInput,
+                      ]}
+                      value={endInputs.month}
+                      onChangeText={handleEndMonthChange}
+                      placeholder="MM"
+                      placeholderTextColor="#949494"
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      editable={!isSubmitting}
+                    />
+                    <TextInput
+                      style={[
+                        styles.input,
+                        styles.segmentedInput,
+                        styles.dateInput,
+                      ]}
+                      value={endInputs.day}
+                      onChangeText={handleEndDayChange}
+                      placeholder="DD"
+                      placeholderTextColor="#949494"
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      editable={!isSubmitting}
+                    />
+                  </View>
+                  <Text style={styles.dateTimeLabel}>End time</Text>
+                  <View style={styles.timeRow}>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        styles.segmentedInput,
+                        styles.timeInput,
+                      ]}
+                      value={endInputs.hour}
+                      onChangeText={handleEndHourChange}
+                      placeholder="HH"
+                      placeholderTextColor="#949494"
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      editable={!isSubmitting}
+                    />
+                    <Text style={styles.timeSeparator}>:</Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        styles.segmentedInput,
+                        styles.timeInput,
+                      ]}
+                      value={endInputs.minute}
+                      onChangeText={handleEndMinuteChange}
+                      placeholder="MM"
+                      placeholderTextColor="#949494"
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      editable={!isSubmitting}
+                    />
+                  </View>
+                </View>
                 <View style={styles.inlineInputs}>
                   <TextInput
                     style={[styles.input, styles.inlineInput]}
@@ -616,6 +890,44 @@ const styles = StyleSheet.create({
   },
   inlineInput: {
     flex: 1,
+  },
+  dateTimeBlock: {
+    marginBottom: 16,
+  },
+  dateTimeLabel: {
+    fontSize: 13,
+    fontFamily: "DMSans_500Medium",
+    color: "#4A4A4A",
+    marginBottom: 6,
+  },
+  dateRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 12,
+  },
+  timeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 16,
+  },
+  segmentedInput: {
+    marginBottom: 0,
+    textAlign: "center",
+  },
+  yearInput: {
+    flex: 1.4,
+  },
+  dateInput: {
+    flex: 1,
+  },
+  timeInput: {
+    flex: 1,
+  },
+  timeSeparator: {
+    fontSize: 18,
+    fontFamily: "DMSans_700Bold",
+    color: "#0E5B37",
   },
   courtPicker: {
     marginTop: 12,
