@@ -42,6 +42,11 @@ router.post("/:id/like", authenticateToken, postController.toggleLikePost);
 // @access  Private
 router.post("/:id/unlike", authenticateToken, postController.unlikePost);
 
+// @route   GET /api/posts/:id/likes
+// @desc    获取帖子的点赞用户列表
+// @access  Private
+router.get("/:id/likes", authenticateToken, postController.getPostLikes);
+
 // --- 评论 (Comment) 路由 ---
 
 // @route   POST /api/posts/:id/comments

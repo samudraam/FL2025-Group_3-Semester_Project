@@ -245,8 +245,8 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     marginBottom: 16,
     overflow: "hidden",
-    borderColor: "#E3F2FD",
-    borderWidth: 2,
+    borderColor: "#025C24",
+    borderWidth: 1,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.5,
@@ -259,6 +259,8 @@ const styles = StyleSheet.create({
   },
   cardContent: {
     padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#025C24",
   },
   cardHeader: {
     flexDirection: "row",

@@ -249,6 +249,47 @@ exports.unlikePost = async (req, res) => {
   }
 };
 
+/**
+ * 获取帖子的点赞用户列表
+ * Get the list of users who liked a post
+ * @route   GET /api/posts/:id/likes
+ */
+exports.getPostLikes = async (req, res) => {
+  try {
+    const postId = req.params.id;
+
+    const post = await Post.findById(postId).populate({
+      path: "likes",
+      select: "profile.displayName profile.avatar email",
+    });
+
+    if (!post) {
+      return res.status(404).json({ success: false, error: "Post not found." });
+    }
+
+    const likes =
+      post.likes?.map((userDoc) => ({
+        _id: userDoc._id,
+        username:
+          userDoc.profile?.displayName || userDoc.email || "Goodminton user",
+        profile: {
+          displayName:
+            userDoc.profile?.displayName ||
+            userDoc.email?.split("@")[0] ||
+            "Player",
+          avatar: userDoc.profile?.avatar || null,
+        },
+      })) ?? [];
+
+    return res.status(200).json({ success: true, likes });
+  } catch (error) {
+    console.error("Get post likes error:", error);
+    return res
+      .status(500)
+      .json({ success: false, error: "Failed to fetch post likes." });
+  }
+};
+
 // --- 评论 (Comment) 功能 ---
 
 /**

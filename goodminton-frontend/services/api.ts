@@ -459,6 +459,14 @@ export const postsAPI = {
     const response = await api.post(`/posts/${postId}/unlike`);
     return response.data;
   },
+
+  /**
+   * Get the list of users who liked a specific post
+   */
+  getPostLikes: async (postId: string) => {
+    const response = await api.get(`/posts/${postId}/likes`);
+    return response.data;
+  },
 };
 
 export interface Conversation {

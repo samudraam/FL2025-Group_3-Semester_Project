@@ -7,12 +7,14 @@ import {
   Modal,
   Alert,
   Image,
+  GestureResponderEvent,
 } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "../services/authContext";
 import { postsAPI } from "../services/api";
 import EditPostModal from "./EditPostModal";
-import { Heart } from "lucide-react-native";
+import { Heart, Mail } from "lucide-react-native";
+import LikeListModal, { LikeUser } from "./LikeListModal";
 
 /**
  * Interface for Post data structure
@@ -96,6 +98,9 @@ export default function PostCard({
   );
   const [likeCount, setLikeCount] = useState(post.likes?.length ?? 0);
   const [isLiking, setIsLiking] = useState(false);
+  const [isLikeModalVisible, setIsLikeModalVisible] = useState(false);
+  const [likers, setLikers] = useState<LikeUser[]>([]);
+  const [isFetchingLikes, setIsFetchingLikes] = useState(false);
 
   useEffect(() => {
     setIsLiked(post.likes?.some((likeId) => likeId === currentUserId) ?? false);
@@ -171,6 +176,9 @@ export default function PostCard({
       if (response?.success) {
         setIsLiked(response.liked);
         setLikeCount(response.likeCount);
+        if (isLikeModalVisible) {
+          fetchPostLikes();
+        }
       }
     } catch (error) {
       Alert.alert("Error", "Unable to update like right now.");
@@ -229,6 +237,51 @@ export default function PostCard({
     ]);
   };
 
+  const fetchPostLikes = async () => {
+    if (isFetchingLikes) {
+      return;
+    }
+    setIsFetchingLikes(true);
+    try {
+      const response = await postsAPI.getPostLikes(post._id);
+      if (response?.success) {
+        setLikers(response.likes);
+        return;
+      }
+      setLikers([]);
+    } catch (error) {
+      console.error("Fetch post likes error:", error);
+      Alert.alert("Error", "Unable to load likes right now.");
+      setLikers([]);
+    } finally {
+      setIsFetchingLikes(false);
+    }
+  };
+
+  const handleOpenLikesModal = () => {
+    setIsLikeModalVisible(true);
+    fetchPostLikes();
+  };
+
+  const handleCloseLikesModal = () => {
+    setIsLikeModalVisible(false);
+  };
+
+  const handleViewLikerProfile = (targetUserId: string) => {
+    handleCloseLikesModal();
+    router.push({
+      pathname: "/tabs/profile-viewer",
+      params: {
+        userId: targetUserId,
+      },
+    });
+  };
+
+  const handleHeartPress = (event: GestureResponderEvent) => {
+    event.stopPropagation();
+    handleToggleLike();
+  };
+
   return (
     <>
       <View style={styles.card}>
@@ -275,21 +328,34 @@ export default function PostCard({
               styles.likeButton,
               isLiked ? styles.likeButtonActive : undefined,
             ]}
-            onPress={handleToggleLike}
-            disabled={isLiking}
+            onPress={handleOpenLikesModal}
             accessibilityRole="button"
-            accessibilityState={{ disabled: isLiking, selected: isLiked }}
-            accessibilityLabel={isLiked ? "Unlike post" : "Like post"}
+            accessibilityLabel="View who liked this post"
+            accessibilityState={{
+              busy: isFetchingLikes,
+              expanded: isLikeModalVisible,
+            }}
           >
-            <Heart
-              size={20}
-              color={isLiked ? "#E63946" : "#666"}
-              fill={isLiked ? "#E63946" : "transparent"}
-            />
-            <Text style={styles.likeCountText}>{likeCount}</Text>
+            <Pressable
+              style={styles.heartIconButton}
+              onPress={handleHeartPress}
+              disabled={isLiking}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: isLiking, selected: isLiked }}
+              accessibilityLabel={isLiked ? "Unlike post" : "Like post"}
+            >
+              <Heart
+                size={20}
+                color={isLiked ? "#E63946" : "#666"}
+                fill={isLiked ? "#E63946" : "transparent"}
+              />
+            </Pressable>
+            <View style={styles.likeInfo}>
+              <Text style={styles.likeCountText}>{likeCount}</Text>
+            </View>
           </Pressable>
           <Pressable style={styles.replyButton} onPress={handleReplyPress}>
-            <Text style={styles.replyButtonText}>Reply</Text>
+            <Text style={styles.replyButtonText}><Mail color="#0E5B37" size={20} /></Text>
           </Pressable>
         </View>
       </View>
@@ -359,6 +425,13 @@ export default function PostCard({
         onPostUpdated={handlePostUpdated}
         post={post}
       />
+      <LikeListModal
+        isVisible={isLikeModalVisible}
+        onClose={handleCloseLikesModal}
+        likes={likers}
+        isLoading={isFetchingLikes}
+        onViewProfile={handleViewLikerProfile}
+      />
     </>
   );
 }
@@ -370,7 +443,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: "#E3F2FD",
+    borderColor: "#025C24",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -502,7 +575,7 @@ const styles = StyleSheet.create({
   },
   replyButton: {
     paddingVertical: 8,
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: "#E0E0E0",
     borderRadius: 8,
@@ -520,9 +593,9 @@ const styles = StyleSheet.create({
   likeButton: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 999,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: "#E0E0E0",
   },
@@ -530,10 +603,20 @@ const styles = StyleSheet.create({
     borderColor: "#E63946",
     backgroundColor: "rgba(230, 57, 70, 0.1)",
   },
+  heartIconButton: {
+    height: 30,
+    width: 24,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  likeInfo: {
+    paddingHorizontal: 3,
+  },
   likeCountText: {
-    marginLeft: 8,
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: "DMSans_500Medium",
     color: "#0E5B37",
+    marginRight: 2,
   },
 });
