@@ -104,6 +104,7 @@ router.get("/friends", authenticateToken, userController.getFriends);
 // get /api/users/favoriteCourts
 router.get("/favoriteCourts", authenticateToken, userController.getFavorites);
 
+router.get("/event-rsvps", authenticateToken, userController.getEventRsvps);
 
 // @route   DELETE /api/users/friends/:id
 // @desc    删除好友 (Remove a friend)

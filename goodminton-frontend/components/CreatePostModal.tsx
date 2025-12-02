@@ -1,16 +1,21 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  Modal,
-  Pressable,
-  TextInput,
   ActivityIndicator,
   Alert,
+  Modal,
+  Pressable,
   ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
-import { postsAPI } from "../services/api";
+import {
+  communityEventsAPI,
+  courtsAPI,
+  type CourtSummary,
+  postsAPI,
+} from "../services/api";
 
 interface CreatePostModalProps {
   visible: boolean;
@@ -19,8 +24,11 @@ interface CreatePostModalProps {
   communitySlug?: string;
 }
 
+type CreatorMode = "post" | "event";
+type LocationMode = "court" | "custom";
+
 /**
- * Modal component for creating a new community post
+ * Modal component for creating either a standard post or a community event.
  */
 export default function CreatePostModal({
   visible,
@@ -28,17 +36,89 @@ export default function CreatePostModal({
   onPostCreated,
   communitySlug,
 }: CreatePostModalProps) {
+  const canCreateEvent = Boolean(communitySlug);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
+  const [creatorMode, setCreatorMode] = useState<CreatorMode>("post");
+  const [locationMode, setLocationMode] = useState<LocationMode>("court");
+  const [startAt, setStartAt] = useState("");
+  const [endAt, setEndAt] = useState("");
+  const [rsvpLimit, setRsvpLimit] = useState("");
+  const [visibility, setVisibility] = useState<"community" | "public">(
+    "community"
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [courts, setCourts] = useState<CourtSummary[]>([]);
+  const [isCourtsLoading, setIsCourtsLoading] = useState(false);
+  const [courtQuery, setCourtQuery] = useState("");
+  const [selectedCourtId, setSelectedCourtId] = useState<string | null>(null);
+  const [courtError, setCourtError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+    if (canCreateEvent && creatorMode === "event" && courts.length === 0) {
+      loadCourts();
+    }
+  }, [visible, canCreateEvent, creatorMode, courts.length]);
+
+  const filteredCourts = useMemo(() => {
+    if (!courtQuery.trim()) {
+      return courts;
+    }
+    const query = courtQuery.trim().toLowerCase();
+    return courts.filter(
+      (court) =>
+        court.name.toLowerCase().includes(query) ||
+        court.address.toLowerCase().includes(query)
+    );
+  }, [courtQuery, courts]);
+
+  const selectedCourt = useMemo(() => {
+    return courts.find((court) => court._id === selectedCourtId) || null;
+  }, [courts, selectedCourtId]);
 
   const handleClose = () => {
     if (!isSubmitting) {
-      setTitle("");
-      setDescription("");
-      setLocation("");
-      onClose();
+      resetForm();
+    }
+  };
+
+  const resetForm = () => {
+    setTitle("");
+    setDescription("");
+    setLocation("");
+    setCreatorMode("post");
+    setLocationMode("court");
+    setStartAt("");
+    setEndAt("");
+    setRsvpLimit("");
+    setVisibility("community");
+    setSelectedCourtId(null);
+    setCourtQuery("");
+    setCourtError(null);
+    onClose();
+  };
+
+  const loadCourts = async () => {
+    try {
+      setIsCourtsLoading(true);
+      setCourtError(null);
+      const response = await courtsAPI.list();
+      if (response.success) {
+        setCourts(response.courts || []);
+      } else {
+        setCourtError(response.error || "Unable to load courts.");
+      }
+    } catch (error) {
+      const message =
+        (error as any)?.response?.data?.error ||
+        "Unable to load courts. Please try again.";
+      setCourtError(message);
+    } finally {
+      setIsCourtsLoading(false);
     }
   };
 
@@ -57,6 +137,94 @@ export default function CreatePostModal({
       return;
     }
 
+    if (creatorMode === "event") {
+      await submitEvent(trimmedTitle, trimmedDescription, trimmedLocation);
+      return;
+    }
+
+    await submitPost(trimmedTitle, trimmedDescription, trimmedLocation);
+  };
+
+  const submitEvent = async (
+    trimmedTitle: string,
+    trimmedDescription: string,
+    trimmedLocation: string
+  ) => {
+    if (!communitySlug) {
+      Alert.alert(
+        "Unavailable",
+        "Events can only be created from inside a community."
+      );
+      return;
+    }
+
+    if (!startAt.trim() || !endAt.trim()) {
+      Alert.alert("Error", "Please provide both start and end times.");
+      return;
+    }
+
+    const startDate = new Date(startAt);
+    const endDate = new Date(endAt);
+
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      Alert.alert(
+        "Error",
+        "Please enter valid dates in ISO format (e.g. 2025-05-01T18:30)."
+      );
+      return;
+    }
+
+    if (endDate <= startDate) {
+      Alert.alert("Error", "End time must be after the start time.");
+      return;
+    }
+
+    if (!trimmedLocation) {
+      Alert.alert(
+        "Error",
+        "Please choose a court or provide a custom location."
+      );
+      return;
+    }
+
+    const numericLimit = rsvpLimit ? parseInt(rsvpLimit, 10) : undefined;
+    if (
+      numericLimit !== undefined &&
+      (Number.isNaN(numericLimit) || numericLimit < 0)
+    ) {
+      Alert.alert("Error", "RSVP limit must be a positive number.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await communityEventsAPI.create(communitySlug, {
+        title: trimmedTitle,
+        description: trimmedDescription,
+        location: trimmedLocation,
+        startAt: startDate.toISOString(),
+        endAt: endDate.toISOString(),
+        rsvpLimit: numericLimit,
+        visibility,
+      });
+      Alert.alert("Success", "Event created successfully.");
+      resetForm();
+      onPostCreated();
+    } catch (error: any) {
+      const errorMessage =
+        error?.response?.data?.error ||
+        "Failed to create event. Please try again.";
+      Alert.alert("Error", errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const submitPost = async (
+    trimmedTitle: string,
+    trimmedDescription: string,
+    trimmedLocation: string
+  ) => {
     setIsSubmitting(true);
     try {
       if (communitySlug) {
@@ -73,10 +241,8 @@ export default function CreatePostModal({
         });
       }
 
-      setTitle("");
-      setDescription("");
-      setLocation("");
-      onClose();
+      Alert.alert("Success", "Post created successfully.");
+      resetForm();
       onPostCreated();
     } catch (error: any) {
       const errorMessage =
@@ -86,6 +252,11 @@ export default function CreatePostModal({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSelectCourt = (court: CourtSummary) => {
+    setSelectedCourtId(court._id);
+    setLocation(`${court.name}, ${court.address}`);
   };
 
   return (
@@ -98,7 +269,48 @@ export default function CreatePostModal({
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <ScrollView showsVerticalScrollIndicator={false}>
-            <Text style={styles.modalTitle}>Make a Post</Text>
+            <Text style={styles.modalTitle}>
+              {creatorMode === "event" ? "Create Event" : "Make a Post"}
+            </Text>
+
+            <View style={styles.toggleGroup}>
+              <Pressable
+                onPress={() => setCreatorMode("post")}
+                disabled={isSubmitting}
+                style={[
+                  styles.toggleButton,
+                  creatorMode === "post" && styles.toggleButtonActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.toggleLabel,
+                    creatorMode === "post" && styles.toggleLabelActive,
+                  ]}
+                >
+                  Post
+                </Text>
+              </Pressable>
+              {canCreateEvent && (
+                <Pressable
+                  onPress={() => setCreatorMode("event")}
+                  disabled={isSubmitting}
+                  style={[
+                    styles.toggleButton,
+                    creatorMode === "event" && styles.toggleButtonActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.toggleLabel,
+                      creatorMode === "event" && styles.toggleLabelActive,
+                    ]}
+                  >
+                    Event
+                  </Text>
+                </Pressable>
+              )}
+            </View>
 
             <TextInput
               style={styles.input}
@@ -123,14 +335,177 @@ export default function CreatePostModal({
               maxLength={5000}
             />
 
-            <TextInput
-              style={styles.input}
-              value={location}
-              onChangeText={setLocation}
-              placeholder="location (optional)"
-              placeholderTextColor="#949494"
-              editable={!isSubmitting}
-            />
+            {creatorMode === "post" && (
+              <TextInput
+                style={styles.input}
+                value={location}
+                onChangeText={setLocation}
+                placeholder="location (optional)"
+                placeholderTextColor="#949494"
+                editable={!isSubmitting}
+              />
+            )}
+
+            {creatorMode === "event" && (
+              <>
+                <Text style={styles.sectionLabel}>Event schedule</Text>
+                <TextInput
+                  style={styles.input}
+                  value={startAt}
+                  onChangeText={setStartAt}
+                  placeholder="Start (YYYY-MM-DDTHH:mm)"
+                  placeholderTextColor="#949494"
+                  editable={!isSubmitting}
+                />
+                <TextInput
+                  style={styles.input}
+                  value={endAt}
+                  onChangeText={setEndAt}
+                  placeholder="End (YYYY-MM-DDTHH:mm)"
+                  placeholderTextColor="#949494"
+                  editable={!isSubmitting}
+                />
+                <View style={styles.inlineInputs}>
+                  <TextInput
+                    style={[styles.input, styles.inlineInput]}
+                    value={rsvpLimit}
+                    onChangeText={setRsvpLimit}
+                    placeholder="RSVP limit (optional)"
+                    placeholderTextColor="#949494"
+                    keyboardType="number-pad"
+                    editable={!isSubmitting}
+                  />
+                  <TextInput
+                    style={[styles.input, styles.inlineInput]}
+                    value={visibility}
+                    onChangeText={(value) =>
+                      setVisibility(
+                        value.trim().toLowerCase() === "public"
+                          ? "public"
+                          : "community"
+                      )
+                    }
+                    placeholder="Visibility (community/public)"
+                    placeholderTextColor="#949494"
+                    editable={!isSubmitting}
+                  />
+                </View>
+
+                <Text style={styles.sectionLabel}>Location</Text>
+                <View style={styles.toggleGroup}>
+                  <Pressable
+                    onPress={() => setLocationMode("court")}
+                    disabled={isSubmitting}
+                    style={[
+                      styles.toggleButton,
+                      locationMode === "court" && styles.toggleButtonActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.toggleLabel,
+                        locationMode === "court" && styles.toggleLabelActive,
+                      ]}
+                    >
+                      Choose court
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      setLocationMode("custom");
+                      setSelectedCourtId(null);
+                    }}
+                    disabled={isSubmitting}
+                    style={[
+                      styles.toggleButton,
+                      locationMode === "custom" && styles.toggleButtonActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.toggleLabel,
+                        locationMode === "custom" && styles.toggleLabelActive,
+                      ]}
+                    >
+                      Custom location
+                    </Text>
+                  </Pressable>
+                </View>
+
+                {locationMode === "court" ? (
+                  <View style={styles.courtPicker}>
+                    {isCourtsLoading ? (
+                      <View style={styles.courtState}>
+                        <ActivityIndicator color="#0E5B37" />
+                        <Text style={styles.courtStateText}>
+                          Loading courts...
+                        </Text>
+                      </View>
+                    ) : courtError ? (
+                      <View style={styles.courtState}>
+                        <Text style={styles.courtStateText}>{courtError}</Text>
+                        <Pressable
+                          style={[styles.button, styles.retryButton]}
+                          onPress={loadCourts}
+                          disabled={isSubmitting}
+                        >
+                          <Text style={styles.retryButtonText}>Retry</Text>
+                        </Pressable>
+                      </View>
+                    ) : (
+                      <>
+                        <TextInput
+                          style={styles.input}
+                          value={courtQuery}
+                          onChangeText={setCourtQuery}
+                          placeholder="Search courts"
+                          placeholderTextColor="#949494"
+                          editable={!isSubmitting}
+                        />
+                        <View style={styles.courtList}>
+                          {filteredCourts.slice(0, 20).map((court) => (
+                            <Pressable
+                              key={court._id}
+                              style={[
+                                styles.courtItem,
+                                court._id === selectedCourtId &&
+                                  styles.courtItemSelected,
+                              ]}
+                              onPress={() => handleSelectCourt(court)}
+                            >
+                              <Text style={styles.courtName}>{court.name}</Text>
+                              <Text style={styles.courtAddress}>
+                                {court.address}
+                              </Text>
+                            </Pressable>
+                          ))}
+                          {selectedCourt && (
+                            <Text style={styles.selectedCourtLabel}>
+                              Selected: {selectedCourt.name} -{" "}
+                              {selectedCourt.address}
+                            </Text>
+                          )}
+                          {filteredCourts.length === 0 && (
+                            <Text style={styles.courtStateText}>
+                              No courts matched your search.
+                            </Text>
+                          )}
+                        </View>
+                      </>
+                    )}
+                  </View>
+                ) : (
+                  <TextInput
+                    style={styles.input}
+                    value={location}
+                    onChangeText={setLocation}
+                    placeholder="Custom location"
+                    placeholderTextColor="#949494"
+                    editable={!isSubmitting}
+                  />
+                )}
+              </>
+            )}
 
             <View style={styles.buttonRow}>
               <Pressable
@@ -184,8 +559,34 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontFamily: "DMSans_700Bold",
     color: "#0E5B37",
-    marginBottom: 24,
+    marginBottom: 16,
     textAlign: "center",
+  },
+  toggleGroup: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 20,
+  },
+  toggleButton: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#C8D8D0",
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  toggleButtonActive: {
+    backgroundColor: "#0E5B37",
+    borderColor: "#0E5B37",
+  },
+  toggleLabel: {
+    fontSize: 15,
+    fontFamily: "DMSans_500Medium",
+    color: "#0E5B37",
+  },
+  toggleLabelActive: {
+    color: "#FFFFFF",
   },
   input: {
     backgroundColor: "#F5F5F5",
@@ -202,6 +603,82 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 150,
     paddingTop: 14,
+  },
+  sectionLabel: {
+    fontSize: 16,
+    fontFamily: "DMSans_600SemiBold",
+    color: "#0E5B37",
+    marginBottom: 8,
+  },
+  inlineInputs: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  inlineInput: {
+    flex: 1,
+  },
+  courtPicker: {
+    marginTop: 12,
+  },
+  courtList: {
+    maxHeight: 220,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    borderRadius: 12,
+    padding: 8,
+    gap: 8,
+  },
+  courtItem: {
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: "#F7FBF9",
+  },
+  courtItemSelected: {
+    backgroundColor: "#DCEFE8",
+    borderWidth: 1,
+    borderColor: "#0E5B37",
+  },
+  courtName: {
+    fontSize: 15,
+    fontFamily: "DMSans_600SemiBold",
+    color: "#0E5B37",
+  },
+  courtAddress: {
+    fontSize: 13,
+    fontFamily: "DMSans_400Regular",
+    color: "#4A4A4A",
+    marginTop: 4,
+  },
+  courtState: {
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    borderRadius: 12,
+    alignItems: "center",
+    gap: 8,
+  },
+  courtStateText: {
+    fontSize: 14,
+    fontFamily: "DMSans_400Regular",
+    color: "#4A4A4A",
+    textAlign: "center",
+  },
+  selectedCourtLabel: {
+    marginTop: 8,
+    fontSize: 13,
+    fontFamily: "DMSans_500Medium",
+    color: "#0E5B37",
+    textAlign: "center",
+  },
+  retryButton: {
+    backgroundColor: "#0E5B37",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontFamily: "DMSans_600SemiBold",
   },
   buttonRow: {
     flexDirection: "row",

@@ -275,6 +275,36 @@ export type UserCommunitySummary = CommunitySummary & {
   membership?: CommunityMembershipSummary | null;
 };
 
+export interface CommunityEventPayload {
+  title: string;
+  description: string;
+  location?: string;
+  startAt: string;
+  endAt: string;
+  rsvpLimit?: number;
+  visibility?: 'community' | 'public';
+}
+
+export interface CommunityEventSummary {
+  id: string;
+  communityId: string;
+  title: string;
+  description: string;
+  location?: string;
+  startAt: string;
+  endAt: string;
+  rsvpLimit?: number;
+  visibility: 'community' | 'public';
+  attendeeCount?: number;
+  createdBy?: {
+    id?: string | null;
+    displayName?: string | null;
+    avatar?: string | null;
+  } | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface UserCommunitiesResponse {
   success: boolean;
   message?: string;
@@ -322,6 +352,36 @@ export const communitiesAPI = {
   },
 };
 
+export const communityEventsAPI = {
+  create: async (
+    identifier: string,
+    payload: CommunityEventPayload
+  ): Promise<{ success: boolean; message?: string; error?: string; event?: CommunityEventSummary }> => {
+    const response = await api.post(`/communities/${identifier}/events`, payload);
+    return response.data;
+  },
+  list: async (
+    identifier: string
+  ): Promise<{ success: boolean; events?: CommunityEventSummary[]; error?: string }> => {
+    const response = await api.get(`/communities/${identifier}/events`);
+    return response.data;
+  },
+  rsvp: async (
+    identifier: string,
+    eventId: string
+  ): Promise<{ success: boolean; message?: string; error?: string; attendeeCount?: number }> => {
+    const response = await api.post(`/communities/${identifier}/events/${eventId}/rsvp`);
+    return response.data;
+  },
+  cancelRsvp: async (
+    identifier: string,
+    eventId: string
+  ): Promise<{ success: boolean; message?: string; error?: string; attendeeCount?: number }> => {
+    const response = await api.delete(`/communities/${identifier}/events/${eventId}/rsvp`);
+    return response.data;
+  },
+};
+
 export interface UpdateAvatarResponse {
   success: boolean;
   message: string;
@@ -331,6 +391,17 @@ export interface UpdateAvatarResponse {
     email: string;
     profile: Record<string, unknown>;
   };
+}
+
+export interface UserEventRsvpSummary {
+  eventId: string;
+  communityId?: string | null;
+  communitySlug?: string | null;
+  title?: string;
+  startAt?: string;
+  endAt?: string;
+  location?: string;
+  createdAt?: string;
 }
 
 // Users API functions
@@ -390,6 +461,13 @@ export const usersAPI = {
         'Content-Type': 'multipart/form-data',
       },
     });
+    return response.data;
+  },
+  /**
+   * Get the authenticated user's event RSVPs
+   */
+  getEventRsvps: async (): Promise<{ success: boolean; rsvps: UserEventRsvpSummary[] }> => {
+    const response = await api.get('/users/event-rsvps');
     return response.data;
   },
 };
@@ -540,6 +618,30 @@ export const postsAPI = {
     const response = await api.delete(
       `/posts/${postId}/comments/${commentId}`
     );
+    return response.data;
+  },
+};
+
+export interface CourtSummary {
+  _id: string;
+  name: string;
+  address: string;
+  location?: {
+    type: 'Point';
+    coordinates: [number, number];
+  };
+  indoor?: boolean;
+  price?: number;
+  rating?: number;
+}
+
+export const courtsAPI = {
+  list: async (): Promise<{
+    success: boolean;
+    courts: CourtSummary[];
+    error?: string;
+  }> => {
+    const response = await api.get("/courts");
     return response.data;
   },
 };

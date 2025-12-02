@@ -55,6 +55,26 @@ router.post(
   authenticateToken,
   communityController.createCommunityPost
 );
+router.post(
+  "/:identifier/events",
+  authenticateToken,
+  communityController.createCommunityEvent
+);
+router.get(
+  "/:identifier/events",
+  optionalAuth,
+  communityController.getCommunityEvents
+);
+router.post(
+  "/:identifier/events/:eventId/rsvp",
+  authenticateToken,
+  communityController.rsvpForEvent
+);
+router.delete(
+  "/:identifier/events/:eventId/rsvp",
+  authenticateToken,
+  communityController.cancelEventRsvp
+);
 router.get(
   "/:identifier/posts",
   optionalAuth,

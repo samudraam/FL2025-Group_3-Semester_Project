@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   StyleSheet,
   Text,
@@ -16,16 +17,21 @@ import { router, useLocalSearchParams } from "expo-router";
 import {
   CommunityMembershipSummary,
   CommunitySummary,
+  CommunityEventSummary,
   communitiesAPI,
+  communityEventsAPI,
   postsAPI,
+  usersAPI,
 } from "../../services/api";
 import PostCard, { type Post } from "../../components/PostCard";
+import CommunityEventCard from "../../components/CommunityEventCard";
 import CommunityScreenLayout from "../../components/community/CommunityScreenLayout";
 import CommunityScreenHeader from "../../components/community/CommunityScreenHeader";
 import CommunityHeroCard from "../../components/community/CommunityHeroCard";
 import CommunitySummaryCard from "../../components/community/CommunitySummaryCard";
 import CommunityFeedHeader from "../../components/community/CommunityFeedHeader";
 import CreatePostModal from "../../components/CreatePostModal";
+import { useAuth } from "../../services/authContext";
 
 const CommunityScreen = () => {
   const params = useLocalSearchParams<{ slug: string | string[] }>();
@@ -38,9 +44,15 @@ const CommunityScreen = () => {
   const [isFeedLoading, setIsFeedLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [events, setEvents] = useState<CommunityEventSummary[]>([]);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
+  const [isEventLoading, setIsEventLoading] = useState(true);
+  const [eventError, setEventError] = useState<string | null>(null);
+  const [userEventRsvps, setUserEventRsvps] = useState<Set<string>>(new Set());
+  const [rsvpLoadingId, setRsvpLoadingId] = useState<string | null>(null);
   const membershipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { user: authUser } = useAuth();
 
   const identifier = useMemo(() => {
     if (Array.isArray(params.slug)) {
@@ -101,10 +113,57 @@ const CommunityScreen = () => {
     }
   }, [identifier]);
 
+  const loadEvents = useCallback(async () => {
+    if (!identifier) {
+      setEventError("Community not found.");
+      setEvents([]);
+      setIsEventLoading(false);
+      return;
+    }
+    setEventError(null);
+    setIsEventLoading(true);
+    try {
+      const response = await communityEventsAPI.list(identifier);
+      if (!response?.success) {
+        throw new Error(response?.error || "Unable to fetch events.");
+      }
+      setEvents(response.events ?? []);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to load events.";
+      setEvents([]);
+      setEventError(message);
+    } finally {
+      setIsEventLoading(false);
+    }
+  }, [identifier]);
+
+  const loadUserRsvps = useCallback(async () => {
+    if (!authUser) {
+      setUserEventRsvps(new Set());
+      return;
+    }
+    try {
+      const response = await usersAPI.getEventRsvps();
+      if (response?.success && Array.isArray(response.rsvps)) {
+        setUserEventRsvps(
+          new Set(response.rsvps.map((entry) => entry.eventId))
+        );
+      }
+    } catch (error) {
+      console.warn("Load event RSVPs error:", error);
+    }
+  }, [authUser]);
+
   useEffect(() => {
     loadCommunity();
     loadFeed();
-  }, [loadCommunity, loadFeed]);
+    loadEvents();
+  }, [loadCommunity, loadFeed, loadEvents]);
+
+  useEffect(() => {
+    loadUserRsvps();
+  }, [loadUserRsvps]);
 
   useEffect(() => {
     return () => {
@@ -156,7 +215,9 @@ const CommunityScreen = () => {
   const handlePostCreated = useCallback(() => {
     setIsCreateModalVisible(false);
     loadFeed();
-  }, [loadFeed]);
+    loadEvents();
+    loadUserRsvps();
+  }, [loadFeed, loadEvents, loadUserRsvps]);
 
   const handleMembershipToggle = useCallback(() => {
     if (!community || isActionLoading) {
@@ -192,28 +253,181 @@ const CommunityScreen = () => {
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadCommunity(), loadFeed()]);
+    await Promise.all([
+      loadCommunity(),
+      loadFeed(),
+      loadEvents(),
+      loadUserRsvps(),
+    ]);
     setRefreshing(false);
-  }, [loadCommunity, loadFeed]);
+  }, [loadCommunity, loadFeed, loadEvents, loadUserRsvps]);
 
   const handlePostUpdated = useCallback(() => {
     loadFeed();
   }, [loadFeed]);
 
-  const renderPostItem = useCallback(
-    ({ item }: { item: Post }) => (
-      <View style={styles.postCard}>
-        <PostCard
-          post={item}
-          onPostDeleted={loadFeed}
-          onPostUpdated={handlePostUpdated}
-        />
-      </View>
-    ),
-    [loadFeed, handlePostUpdated]
+  type FeedItem =
+    | { kind: "post"; data: Post }
+    | { kind: "event"; data: CommunityEventSummary };
+
+  const feedItems = useMemo<FeedItem[]>(() => {
+    const mappedPosts: FeedItem[] = posts.map((post) => ({
+      kind: "post",
+      data: post,
+    }));
+    const mappedEvents: FeedItem[] = events.map((event) => ({
+      kind: "event",
+      data: event,
+    }));
+    return [...mappedEvents, ...mappedPosts].sort((a, b) => {
+      const aTime =
+        a.kind === "event"
+          ? new Date(a.data.startAt || a.data.createdAt || 0).getTime()
+          : new Date(a.data.createdAt || 0).getTime();
+      const bTime =
+        b.kind === "event"
+          ? new Date(b.data.startAt || b.data.createdAt || 0).getTime()
+          : new Date(b.data.createdAt || 0).getTime();
+      return bTime - aTime;
+    });
+  }, [events, posts]);
+
+  const formatEventWindow = useCallback((start?: string, end?: string) => {
+    if (!start) {
+      return "Date to be announced";
+    }
+    const startDate = new Date(start);
+    const endDate = end ? new Date(end) : null;
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+    const startLabel = formatter.format(startDate);
+    if (!endDate || Number.isNaN(endDate.getTime())) {
+      return startLabel;
+    }
+    const endLabel = formatter.format(endDate);
+    return `${startLabel} - ${endLabel}`;
+  }, []);
+
+  const isEventInPast = useCallback((start?: string) => {
+    if (!start) {
+      return false;
+    }
+    const startDate = new Date(start);
+    return startDate.getTime() < Date.now();
+  }, []);
+
+  const handleEventRsvpToggle = useCallback(
+    async (event: CommunityEventSummary) => {
+      if (!identifier) {
+        return;
+      }
+
+      if (!authUser) {
+        Alert.alert("Login required", "Please sign in to RSVP for events.");
+        return;
+      }
+
+      if (isEventInPast(event.startAt)) {
+        Alert.alert(
+          "Event already started",
+          "RSVPs are closed for this event."
+        );
+        return;
+      }
+
+      const alreadyRsvped = userEventRsvps.has(event.id);
+      setRsvpLoadingId(event.id);
+
+      try {
+        if (alreadyRsvped) {
+          await communityEventsAPI.cancelRsvp(identifier, event.id);
+          setUserEventRsvps((previous) => {
+            const next = new Set(previous);
+            next.delete(event.id);
+            return next;
+          });
+        } else {
+          await communityEventsAPI.rsvp(identifier, event.id);
+          setUserEventRsvps((previous) => {
+            const next = new Set(previous);
+            next.add(event.id);
+            return next;
+          });
+        }
+        await loadEvents();
+      } catch (error: any) {
+        const errorMessage =
+          error?.response?.data?.error ||
+          "Unable to update RSVP. Please try again.";
+        Alert.alert("RSVP", errorMessage);
+      } finally {
+        setRsvpLoadingId(null);
+      }
+    },
+    [authUser, identifier, isEventInPast, loadEvents, userEventRsvps]
   );
 
-  const keyExtractor = useCallback((item: Post) => item._id, []);
+  const renderFeedItem = useCallback(
+    ({ item }: { item: FeedItem }) => {
+      if (item.kind === "event") {
+        const event = item.data;
+        const eventClosed = isEventInPast(event.startAt);
+        const isRsvped = userEventRsvps.has(event.id);
+        const isPending = rsvpLoadingId === event.id;
+        return (
+          <View style={styles.postCard}>
+            <CommunityEventCard
+              title={event.title}
+              hostName={
+                event.createdBy?.displayName ||
+                event.createdBy?.id ||
+                "Organizer"
+              }
+              communityName={community?.name || "Community"}
+              description={event.description}
+              locationLabel={event.location || "Location to be announced"}
+              dateTimeLabel={formatEventWindow(event.startAt, event.endAt)}
+              rsvpCount={event.attendeeCount ?? 0}
+              isRsvpDisabled={eventClosed}
+              isRsvped={isRsvped}
+              isRsvpPending={isPending}
+              onPressRSVP={() => handleEventRsvpToggle(event)}
+            />
+          </View>
+        );
+      }
+      return (
+        <View style={styles.postCard}>
+          <PostCard
+            post={item.data}
+            onPostDeleted={loadFeed}
+            onPostUpdated={handlePostUpdated}
+          />
+        </View>
+      );
+    },
+    [
+      community?.name,
+      formatEventWindow,
+      handleEventRsvpToggle,
+      isEventInPast,
+      loadFeed,
+      handlePostUpdated,
+      rsvpLoadingId,
+      userEventRsvps,
+    ]
+  );
+
+  const keyExtractor = useCallback((item: FeedItem) => {
+    if (item.kind === "event") {
+      return `event-${item.data.id}`;
+    }
+    return `post-${item.data._id}`;
+  }, []);
 
   const isMember = membership?.status === "active";
   const isPending = membership?.status === "pending";
@@ -265,21 +479,24 @@ const CommunityScreen = () => {
   ]);
 
   const listEmptyComponent = useMemo(() => {
-    if (isFeedLoading) {
+    if (isFeedLoading || isEventLoading) {
       return <FeedSkeleton />;
     }
-    if (feedError) {
+    if (feedError || eventError) {
       return (
-        <FeedStateMessage title="Unable to load posts" subtitle={feedError} />
+        <FeedStateMessage
+          title="Unable to load feed"
+          subtitle={feedError || eventError || "Please try again later."}
+        />
       );
     }
     return (
       <FeedStateMessage
-        title="No posts yet"
-        subtitle="Be the first to share an update with this community."
+        title="No updates yet"
+        subtitle="Share the first post or event with this community."
       />
     );
-  }, [feedError, isFeedLoading]);
+  }, [feedError, eventError, isFeedLoading, isEventLoading]);
 
   const content = useMemo(() => {
     if (isCommunityLoading) {
@@ -308,9 +525,9 @@ const CommunityScreen = () => {
     }
     return (
       <FlatList
-        data={posts}
+        data={feedItems}
         keyExtractor={keyExtractor}
-        renderItem={renderPostItem}
+        renderItem={renderFeedItem}
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={listHeader}
         ListEmptyComponent={listEmptyComponent}
@@ -327,14 +544,14 @@ const CommunityScreen = () => {
   }, [
     community,
     communityError,
+    feedItems,
     handleRefresh,
     isCommunityLoading,
     keyExtractor,
     listEmptyComponent,
     listHeader,
-    posts,
     refreshing,
-    renderPostItem,
+    renderFeedItem,
   ]);
 
   return (

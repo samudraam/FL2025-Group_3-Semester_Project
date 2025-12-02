@@ -118,9 +118,7 @@ export default function PostCard({
   const authorAvatar = post.author.profile?.avatar;
 
   const isOwner =
-    user && "id" in user && "id" in post.author
-      ? user.id === post.author.id
-      : false;
+    user?.id && post.author?._id ? user.id === post.author._id : false;
 
   const handleAuthorPress = () => {
     router.push({

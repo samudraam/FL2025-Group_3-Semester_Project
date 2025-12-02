@@ -7,6 +7,7 @@ const fs = require("fs");
 const User = require("../models/User");
 const Game = require("../models/Game");
 const FriendRequest = require("../models/FriendRequest");
+const CommunityEventRsvp = require("../models/CommunityEventRsvp");
 const socketService = require("../services/socketService");
 const userService = require("../services/userService");
 const cloudinary = require("../utils/cloudinary");
@@ -320,6 +321,56 @@ exports.getPendingFriendRequests = async (req, res) => {
     res.status(500).json({
       success: false,
       error: "Failed to fetch pending friend requests.",
+    });
+  }
+};
+
+/**
+ * Get all community event RSVPs for the authenticated user
+ */
+exports.getEventRsvps = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res
+        .status(401)
+        .json({ success: false, error: "Please log in to view RSVPs." });
+    }
+
+    const rsvps = await CommunityEventRsvp.find({ user: userId })
+      .populate({
+        path: "event",
+        populate: {
+          path: "community",
+          select: "name slug",
+        },
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const payload = rsvps
+      .filter((entry) => entry.event)
+      .map((entry) => ({
+        eventId: entry.event._id?.toString(),
+        communityId: entry.event.community?._id?.toString() || null,
+        communitySlug: entry.event.community?.slug || null,
+        title: entry.event.title,
+        startAt: entry.event.startAt,
+        endAt: entry.event.endAt,
+        location: entry.event.location,
+        createdAt: entry.createdAt,
+      }));
+
+    return res.status(200).json({
+      success: true,
+      rsvps: payload,
+    });
+  } catch (error) {
+    console.error("Get user RSVPs error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to load RSVPs.",
     });
   }
 };
@@ -783,13 +834,11 @@ exports.updateProfileAvatar = async (req, res) => {
 
 // returns the whole court infomation that the user has favorited
 exports.getFavorites = async (req, res) => {
-    try {
-        const courts = await userService.getFavoriteCourts(req.user.userId);
-        console.log(req.user);
-        res.status(200).json({ courts });
-    } catch (err) {
-        res.status(500).json({ message: "Failed to get favorite courts" });
-    }
+  try {
+    const courts = await userService.getFavoriteCourts(req.user.userId);
+    console.log(req.user);
+    res.status(200).json({ courts });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to get favorite courts" });
+  }
 };
-
-
