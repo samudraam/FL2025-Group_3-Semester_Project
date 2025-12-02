@@ -8,18 +8,15 @@ const User = require("../models/User");
 const Game = require("../models/Game");
 const FriendRequest = require("../models/FriendRequest");
 const socketService = require("../services/socketService");
-<<<<<<< HEAD
 const userService = require("../services/userService");
-=======
 const cloudinary = require("../utils/cloudinary");
 const uploadBufferToCloudinary = require("../utils/cloudinaryUpload");
->>>>>>> 77c0f70ccfacd8a9bcdedd60c6c75d4a28682bd3
 
 const uploadsRoot = path.join(__dirname, "..", "uploads");
 const CLOUDINARY_AVATAR_FOLDER = "goodminton/avatars";
 
 /**
- * Attempt to delete a legacy avatar that was stored on disk.
+ * Attempt to delete a legacy avatar that was stored on disk. (DELETE THIS?)
  * @param {string} avatarUrl
  * @returns {void}
  */
