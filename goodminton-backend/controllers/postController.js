@@ -6,7 +6,7 @@
 const mongoose = require("mongoose"); // 引入 mongoose 用于 ObjectId
 const Post = require("../models/Post");
 const User = require("../models/User");
-const Comment = require("../models/Comment"); 
+const Comment = require("../models/Comment");
 
 // --- 帖子 CRUD 功能 ---
 
@@ -99,11 +99,16 @@ exports.updatePost = async (req, res) => {
       return res.status(404).json({ success: false, error: "Post not found." });
     }
     if (post.author.toString() !== userId) {
-      return res.status(403).json({ success: false, error: "User not authorized to edit this post." });
+      return res.status(403).json({
+        success: false,
+        error: "User not authorized to edit this post.",
+      });
     }
 
     if (!title || !description) {
-      return res.status(400).json({ success: false, error: "Title and description are required." });
+      return res
+        .status(400)
+        .json({ success: false, error: "Title and description are required." });
     }
 
     post.title = title;
@@ -111,7 +116,9 @@ exports.updatePost = async (req, res) => {
     await post.save();
     await post.populate("author", "profile.displayName profile.avatar");
 
-    res.status(200).json({ success: true, message: "Post updated successfully.", post });
+    res
+      .status(200)
+      .json({ success: true, message: "Post updated successfully.", post });
   } catch (error) {
     console.error("Update post error:", error);
     res.status(500).json({ success: false, error: "Failed to update post." });
@@ -132,16 +139,22 @@ exports.deletePost = async (req, res) => {
       return res.status(404).json({ success: false, error: "Post not found." });
     }
     if (post.author.toString() !== userId) {
-      return res.status(403).json({ success: false, error: "User not authorized to delete this post." });
+      return res.status(403).json({
+        success: false,
+        error: "User not authorized to delete this post.",
+      });
     }
 
     // 1. 删除帖子 (Delete the Post)
     await Post.findByIdAndDelete(postId);
-    
+
     // 2. 同时也删除该帖子下的所有评论 (Delete all comments for this post)
     await Comment.deleteMany({ post: postId });
 
-    res.status(200).json({ success: true, message: "Post and associated comments deleted successfully." });
+    res.status(200).json({
+      success: true,
+      message: "Post and associated comments deleted successfully.",
+    });
   } catch (error) {
     console.error("Delete post error:", error);
     res.status(500).json({ success: false, error: "Failed to delete post." });
@@ -165,7 +178,8 @@ exports.toggleLikePost = async (req, res) => {
     }
 
     const userIdObjectId = new mongoose.Types.ObjectId(userId);
-    const hasLiked = post.likes.includes(userIdObjectId);
+    const likes = post.likes || [];
+    const hasLiked = likes.some((likeId) => likeId.equals(userIdObjectId));
 
     if (hasLiked) {
       // 取消点赞 (Unlike: Pull user ID from likes array)
@@ -185,10 +199,55 @@ exports.toggleLikePost = async (req, res) => {
     });
   } catch (error) {
     console.error("Toggle like post error:", error);
-    res.status(500).json({ success: false, error: "Failed to toggle like status on post." });
+    res
+      .status(500)
+      .json({ success: false, error: "Failed to toggle like status on post." });
   }
 };
 
+/**
+ * 取消点赞帖子 (Explicit unlike for a post)
+ * @route   POST /api/posts/:id/unlike
+ */
+exports.unlikePost = async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const userId = req.user.userId;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ success: false, error: "Post not found." });
+    }
+
+    const userIdObjectId = new mongoose.Types.ObjectId(userId);
+    const likes = post.likes || [];
+    const hasLiked = likes.some((likeId) => likeId.equals(userIdObjectId));
+
+    if (!hasLiked) {
+      return res.status(200).json({
+        success: true,
+        message: "Post already unliked.",
+        liked: false,
+        likeCount: post.likes.length,
+      });
+    }
+
+    post.likes.pull(userIdObjectId);
+    await post.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Post unliked.",
+      liked: false,
+      likeCount: post.likes.length,
+    });
+  } catch (error) {
+    console.error("Unlike post error:", error);
+    return res
+      .status(500)
+      .json({ success: false, error: "Failed to unlike post." });
+  }
+};
 
 // --- 评论 (Comment) 功能 ---
 
@@ -208,15 +267,24 @@ exports.addComment = async (req, res) => {
     }
 
     if (!content) {
-      return res.status(400).json({ success: false, error: "Comment content is required." });
+      return res
+        .status(400)
+        .json({ success: false, error: "Comment content is required." });
     }
 
-    const newComment = await Comment.create({ content, post: postId, author: authorId });
+    const newComment = await Comment.create({
+      content,
+      post: postId,
+      author: authorId,
+    });
 
     await newComment.populate("author", "profile.displayName profile.avatar");
 
-    res.status(201).json({ success: true, message: "Comment added successfully.", comment: newComment });
-
+    res.status(201).json({
+      success: true,
+      message: "Comment added successfully.",
+      comment: newComment,
+    });
   } catch (error) {
     console.error("Add comment error:", error);
     res.status(500).json({ success: false, error: "Failed to add comment." });
@@ -233,7 +301,7 @@ exports.getPostComments = async (req, res) => {
 
     const postExists = await Post.exists({ _id: postId });
     if (!postExists) {
-       return res.status(404).json({ success: false, error: "Post not found." });
+      return res.status(404).json({ success: false, error: "Post not found." });
     }
 
     const comments = await Comment.find({ post: postId })
@@ -243,7 +311,9 @@ exports.getPostComments = async (req, res) => {
     res.status(200).json({ success: true, count: comments.length, comments });
   } catch (error) {
     console.error("Get comments error:", error);
-    res.status(500).json({ success: false, error: "Failed to fetch comments." });
+    res
+      .status(500)
+      .json({ success: false, error: "Failed to fetch comments." });
   }
 };
 
@@ -258,23 +328,35 @@ exports.deleteComment = async (req, res) => {
 
     const comment = await Comment.findById(commentId);
     if (!comment) {
-      return res.status(404).json({ success: false, error: "Comment not found." });
+      return res
+        .status(404)
+        .json({ success: false, error: "Comment not found." });
     }
     if (comment.post.toString() !== postId) {
-        return res.status(400).json({ success: false, error: "Comment does not belong to this post." });
+      return res.status(400).json({
+        success: false,
+        error: "Comment does not belong to this post.",
+      });
     }
 
     // 验证权限：只有评论作者可以删除
     if (comment.author.toString() !== userId) {
-      return res.status(403).json({ success: false, error: "User not authorized to delete this comment." });
+      return res.status(403).json({
+        success: false,
+        error: "User not authorized to delete this comment.",
+      });
     }
 
     await Comment.findByIdAndDelete(commentId);
 
-    res.status(200).json({ success: true, message: "Comment deleted successfully." });
+    res
+      .status(200)
+      .json({ success: true, message: "Comment deleted successfully." });
   } catch (error) {
     console.error("Delete comment error:", error);
-    res.status(500).json({ success: false, error: "Failed to delete comment." });
+    res
+      .status(500)
+      .json({ success: false, error: "Failed to delete comment." });
   }
 };
 
@@ -289,7 +371,9 @@ exports.toggleLikeComment = async (req, res) => {
 
     const comment = await Comment.findById(commentId);
     if (!comment) {
-      return res.status(404).json({ success: false, error: "Comment not found." });
+      return res
+        .status(404)
+        .json({ success: false, error: "Comment not found." });
     }
 
     const userIdObjectId = new mongoose.Types.ObjectId(userId);
@@ -313,6 +397,9 @@ exports.toggleLikeComment = async (req, res) => {
     });
   } catch (error) {
     console.error("Toggle like comment error:", error);
-    res.status(500).json({ success: false, error: "Failed to toggle like status on comment." });
+    res.status(500).json({
+      success: false,
+      error: "Failed to toggle like status on comment.",
+    });
   }
 };

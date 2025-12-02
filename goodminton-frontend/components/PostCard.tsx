@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import { router } from "expo-router";
 import { useAuth } from "../services/authContext";
 import { postsAPI } from "../services/api";
 import EditPostModal from "./EditPostModal";
+import { Heart } from "lucide-react-native";
 
 /**
  * Interface for Post data structure
@@ -21,6 +22,7 @@ interface Post {
   title: string;
   description: string;
   location?: string;
+  likes?: string[];
   author: {
     _id: string;
     profile: {
@@ -88,6 +90,17 @@ export default function PostCard({
     top: 0,
     right: 0,
   });
+  const currentUserId = user?.id ?? "";
+  const [isLiked, setIsLiked] = useState(
+    post.likes?.some((likeId) => likeId === currentUserId) ?? false
+  );
+  const [likeCount, setLikeCount] = useState(post.likes?.length ?? 0);
+  const [isLiking, setIsLiking] = useState(false);
+
+  useEffect(() => {
+    setIsLiked(post.likes?.some((likeId) => likeId === currentUserId) ?? false);
+    setLikeCount(post.likes?.length ?? 0);
+  }, [post.likes, currentUserId]);
 
   const authorName =
     post.author.profile?.displayName || post.author.email || "Unknown User";
@@ -139,6 +152,32 @@ export default function PostCard({
 
   const handleCloseMenu = () => {
     setMenuModalVisible(false);
+  };
+
+  const handleToggleLike = async () => {
+    if (!user?.id) {
+      Alert.alert("Login required", "Please sign in to like posts.");
+      return;
+    }
+    if (isLiking) {
+      return;
+    }
+    setIsLiking(true);
+    try {
+      const response = isLiked
+        ? await postsAPI.unlikePost(post._id)
+        : await postsAPI.toggleLike(post._id);
+
+      if (response?.success) {
+        setIsLiked(response.liked);
+        setLikeCount(response.likeCount);
+      }
+    } catch (error) {
+      Alert.alert("Error", "Unable to update like right now.");
+      console.error("Toggle like error:", error);
+    } finally {
+      setIsLiking(false);
+    }
   };
 
   /**
@@ -230,9 +269,29 @@ export default function PostCard({
         <Text style={styles.title}>{post.title}</Text>
         <Text style={styles.description}>{post.description}</Text>
 
-        <Pressable style={styles.replyButton} onPress={handleReplyPress}>
-          <Text style={styles.replyButtonText}>Reply</Text>
-        </Pressable>
+        <View style={styles.footerRow}>
+          <Pressable
+            style={[
+              styles.likeButton,
+              isLiked ? styles.likeButtonActive : undefined,
+            ]}
+            onPress={handleToggleLike}
+            disabled={isLiking}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: isLiking, selected: isLiked }}
+            accessibilityLabel={isLiked ? "Unlike post" : "Like post"}
+          >
+            <Heart
+              size={20}
+              color={isLiked ? "#E63946" : "#666"}
+              fill={isLiked ? "#E63946" : "transparent"}
+            />
+            <Text style={styles.likeCountText}>{likeCount}</Text>
+          </Pressable>
+          <Pressable style={styles.replyButton} onPress={handleReplyPress}>
+            <Text style={styles.replyButtonText}>Reply</Text>
+          </Pressable>
+        </View>
       </View>
 
       {/* Overlay to close menu when clicking outside */}
@@ -442,7 +501,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   replyButton: {
-    alignSelf: "flex-end",
     paddingVertical: 8,
     paddingHorizontal: 20,
     borderWidth: 1,
@@ -450,6 +508,30 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   replyButtonText: {
+    fontSize: 14,
+    fontFamily: "DMSans_500Medium",
+    color: "#0E5B37",
+  },
+  footerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  likeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+  },
+  likeButtonActive: {
+    borderColor: "#E63946",
+    backgroundColor: "rgba(230, 57, 70, 0.1)",
+  },
+  likeCountText: {
+    marginLeft: 8,
     fontSize: 14,
     fontFamily: "DMSans_500Medium",
     color: "#0E5B37",

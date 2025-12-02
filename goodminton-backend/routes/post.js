@@ -37,6 +37,10 @@ router.delete("/:id", authenticateToken, postController.deletePost);
 // @access  Private
 router.post("/:id/like", authenticateToken, postController.toggleLikePost);
 
+// @route   POST /api/posts/:id/unlike
+// @desc    取消点赞帖子 (Explicit unlike endpoint)
+// @access  Private
+router.post("/:id/unlike", authenticateToken, postController.unlikePost);
 
 // --- 评论 (Comment) 路由 ---
 
@@ -53,11 +57,19 @@ router.get("/:id/comments", postController.getPostComments);
 // @route   DELETE /api/posts/:id/comments/:commentId
 // @desc    删除评论
 // @access  Private (Author only)
-router.delete("/:id/comments/:commentId", authenticateToken, postController.deleteComment);
+router.delete(
+  "/:id/comments/:commentId",
+  authenticateToken,
+  postController.deleteComment
+);
 
 // @route   POST /api/posts/:postId/comments/:commentId/like
 // @desc    点赞/取消点赞评论 (Toggle like status for a comment)
 // @access  Private
-router.post("/:postId/comments/:commentId/like", authenticateToken, postController.toggleLikeComment);
+router.post(
+  "/:postId/comments/:commentId/like",
+  authenticateToken,
+  postController.toggleLikeComment
+);
 
 module.exports = router;

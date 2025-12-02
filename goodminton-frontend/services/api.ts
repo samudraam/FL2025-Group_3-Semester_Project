@@ -443,6 +443,22 @@ export const postsAPI = {
     const response = await api.get(`/posts/${postId}`);
     return response.data;
   },
+
+  /**
+   * Toggle like state for a post
+   */
+  toggleLike: async (postId: string) => {
+    const response = await api.post(`/posts/${postId}/like`);
+    return response.data;
+  },
+
+  /**
+   * Remove like from a post
+   */
+  unlikePost: async (postId: string) => {
+    const response = await api.post(`/posts/${postId}/unlike`);
+    return response.data;
+  },
 };
 
 export interface Conversation {
