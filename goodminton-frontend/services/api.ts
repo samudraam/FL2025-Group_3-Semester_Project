@@ -513,6 +513,16 @@ export const postsAPI = {
     );
     return response.data;
   },
+
+  /**
+   * Delete a specific comment
+   */
+  deleteComment: async (postId: string, commentId: string) => {
+    const response = await api.delete(
+      `/posts/${postId}/comments/${commentId}`
+    );
+    return response.data;
+  },
 };
 
 export interface Conversation {

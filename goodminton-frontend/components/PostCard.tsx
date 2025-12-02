@@ -41,6 +41,7 @@ interface PostCardProps {
   post: Post;
   onPostDeleted?: () => void;
   onPostUpdated?: () => void;
+  disableCommentsNav?: boolean;
 }
 
 /**
@@ -82,6 +83,7 @@ export default function PostCard({
   post,
   onPostDeleted,
   onPostUpdated,
+  disableCommentsNav,
 }: PostCardProps) {
   const { user } = useAuth();
   const [menuModalVisible, setMenuModalVisible] = useState(false);
@@ -283,6 +285,9 @@ export default function PostCard({
   };
 
   const handleViewCommentsPress = () => {
+    if (disableCommentsNav) {
+      return;
+    }
     router.push(`/posts/${post._id}/comments`);
   };
 
@@ -360,13 +365,21 @@ export default function PostCard({
               </View>
             </Pressable>
             <Pressable
-              style={styles.commentsButton}
+              style={[
+                styles.commentsButton,
+                disableCommentsNav ? styles.commentsButtonDisabled : undefined,
+              ]}
               onPress={handleViewCommentsPress}
+              disabled={disableCommentsNav}
               accessibilityRole="button"
               accessibilityLabel="View comments"
+              accessibilityState={{ disabled: !!disableCommentsNav }}
             >
               <Text>
-                <MessagesSquare color="#0E5B37" size={20} />
+                <MessagesSquare
+                  color={disableCommentsNav ? "#9E9E9E" : "#0E5B37"}
+                  size={20}
+                />
               </Text>
             </Pressable>
           </View>
@@ -613,6 +626,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginLeft: 8,
     flexShrink: 1,
+  },
+  commentsButtonDisabled: {
+    borderColor: "#C8C8C8",
+    backgroundColor: "#F4F4F4",
   },
 
   footerRow: {

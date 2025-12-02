@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, Pressable, Image, Alert } from "react-native";
-import { Heart } from "lucide-react-native";
+import { Heart, Trash2 } from "lucide-react-native";
 import { router } from "expo-router";
 import { useAuth } from "../services/authContext";
 import { postsAPI } from "../services/api";
@@ -28,9 +28,10 @@ export interface CommentItem {
 interface CommentCardProps {
   comment: CommentItem;
   postId: string;
+  onDeleted?: (commentId: string) => void;
 }
 
-const CommentCard = ({ comment, postId }: CommentCardProps) => {
+const CommentCard = ({ comment, postId, onDeleted }: CommentCardProps) => {
   const { user } = useAuth();
   const currentUserId = user?.id ?? "";
   const [isLiked, setIsLiked] = useState(
@@ -41,6 +42,7 @@ const CommentCard = ({ comment, postId }: CommentCardProps) => {
   const [isLikeModalVisible, setIsLikeModalVisible] = useState(false);
   const [likers, setLikers] = useState<LikeUser[]>([]);
   const [isFetchingLikes, setIsFetchingLikes] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     setIsLiked(
@@ -61,7 +63,6 @@ const CommentCard = ({ comment, postId }: CommentCardProps) => {
 
   const avatarInitial = displayName.charAt(0).toUpperCase();
 
-
   const formattedTimestamp = useMemo(() => {
     const createdDate = new Date(comment.createdAt);
     return createdDate.toLocaleString("en-US", {
@@ -80,6 +81,35 @@ const CommentCard = ({ comment, postId }: CommentCardProps) => {
       pathname: "/tabs/profile-viewer",
       params: { userId: comment.author._id },
     });
+  };
+
+  const canDelete = comment.author?._id === currentUserId;
+
+  const handleConfirmDelete = () => {
+    Alert.alert("Delete comment", "Are you sure you want to remove this?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: handleDeleteComment },
+    ]);
+  };
+
+  const handleDeleteComment = async () => {
+    if (isDeleting) {
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      const response = await postsAPI.deleteComment(postId, comment._id);
+      if (response?.success) {
+        onDeleted?.(comment._id);
+        return;
+      }
+      Alert.alert("Error", "Unable to delete comment right now.");
+    } catch (error) {
+      console.error("Delete comment error:", error);
+      Alert.alert("Error", "Unable to delete comment right now.");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleToggleLike = async () => {
@@ -168,6 +198,22 @@ const CommentCard = ({ comment, postId }: CommentCardProps) => {
           </View>
           <Text style={styles.commentText}>{comment.content}</Text>
           <View style={styles.actionsRow}>
+            {canDelete && (
+              <Pressable
+                style={styles.deleteButton}
+                onPress={handleConfirmDelete}
+                disabled={isDeleting}
+                accessibilityRole="button"
+                accessibilityLabel="Delete comment"
+                accessibilityState={{ disabled: isDeleting }}
+              >
+                <Trash2
+                  size={18}
+                  color={isDeleting ? "#E63946" : "#7D7D7D"}
+                  fill={isDeleting ? "#E63946" : "transparent"}
+                />
+              </Pressable>
+            )}
             <Pressable
               style={[
                 styles.likeButton,
@@ -279,7 +325,16 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
+    alignItems: "center",
     marginTop: 10,
+    gap: 8,
+  },
+  deleteButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
   },
   likeButton: {
     flexDirection: "row",

@@ -146,11 +146,19 @@ const CommentsScreen = () => {
     }
   };
 
+  const handleCommentDeleted = useCallback((commentId: string) => {
+    setComments((prev) => prev.filter((comment) => comment._id !== commentId));
+  }, []);
+
   const renderComment = useCallback(
     ({ item }: { item: CommentItem }) => (
-      <CommentCard comment={item} postId={postIdString} />
+      <CommentCard
+        comment={item}
+        postId={postIdString}
+        onDeleted={handleCommentDeleted}
+      />
     ),
-    [postIdString]
+    [postIdString, handleCommentDeleted]
   );
 
   const keyExtractor = useCallback((item: CommentItem) => item._id, []);
@@ -194,7 +202,7 @@ const CommentsScreen = () => {
                 <ActivityIndicator color="#0E5B37" />
               </View>
             ) : postDetail ? (
-              <PostCard post={postDetail} />
+              <PostCard post={postDetail} disableCommentsNav />
             ) : (
               <Text style={styles.errorText}>
                 {postError ?? "Unable to load post."}
