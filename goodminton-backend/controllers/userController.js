@@ -8,6 +8,7 @@ const User = require("../models/User");
 const Game = require("../models/Game");
 const FriendRequest = require("../models/FriendRequest");
 const socketService = require("../services/socketService");
+const userService = require("../services/userService");
 
 const uploadsRoot = path.join(__dirname, "..", "uploads");
 
@@ -726,3 +727,16 @@ exports.updateProfileAvatar = async (req, res) => {
     });
   }
 };
+
+// returns the whole court infomation that the user has favorited
+exports.getFavorites = async (req, res) => {
+    try {
+        const courts = await userService.getFavoriteCourts(req.user.userId);
+        console.log(req.user);
+        res.status(200).json({ courts });
+    } catch (err) {
+        res.status(500).json({ message: "Failed to get favorite courts" });
+    }
+};
+
+

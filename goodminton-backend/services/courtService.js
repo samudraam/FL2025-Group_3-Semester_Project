@@ -1,5 +1,7 @@
 const Court = require("../models/Court");
 const CourtRating = require("../models/CourtRating");
+const FavoriteCourt = require("../models/FavoriteCourt");
+const CourtComment = require("../models/CourtComment");
 
 // radius 单位 km
 async function searchCourts({ lat, lng, radius, name, isOpen, hasAvailableCourts }) {
@@ -68,4 +70,39 @@ async function rateCourt(courtId, userId, score) {
     return avg;
 };
 
-module.exports = { searchCourts, rateCourt };
+// favorite a court
+async function favoriteCourt(courtId, userId) {
+    return await FavoriteCourt.create({userId, courtId});
+}
+
+// unfavorite a court
+async function unfavoriteCourt(courtId, userId) {
+    return await FavoriteCourt.findOneAndDelete({ userId, courtId });
+}
+
+// add a comment to a court
+async function addComment(courtId, userId, description) {
+    return await CourtComment.create({
+        author: userId,
+        description,
+        courtId, 
+    });
+}
+
+// get comments for a court
+async function getComments(courtId) {
+    return await CourtComment.find({ courtId })
+        .populate("author", "profile.displayName")
+        .sort({ createdAt: -1 })
+        .lean();
+}
+
+
+module.exports = { 
+    searchCourts, 
+    rateCourt,
+    favoriteCourt,
+    unfavoriteCourt,
+    addComment,
+    getComments,
+};

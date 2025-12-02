@@ -118,6 +118,10 @@ router.post(
 // @desc    获取好友列表 (Get current user's friends list)
 router.get("/friends", authenticateToken, userController.getFriends);
 
+// get /api/users/favoriteCourts
+router.get("/favoriteCourts", authenticateToken, userController.getFavorites);
+
+
 // @route   DELETE /api/users/friends/:id
 // @desc    删除好友 (Remove a friend)
 router.delete("/friends/:id", authenticateToken, userController.removeFriend);

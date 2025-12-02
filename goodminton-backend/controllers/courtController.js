@@ -85,4 +85,98 @@ async function getCourtRatings(req, res) {
   }
 };
 
-module.exports = { searchCourts, rateCourt, getCourtRatings };
+/**
+ * favorite a court
+ */
+async function favoriteCourt(req, res) {
+  try {
+    const { id:courtId } = req.params;
+    const userId  = req.user.userId;
+    if (!userId) {
+      return res.status(400).json({error: "Missing userId"});
+    }
+
+    const result = await courtService.favoriteCourt(courtId, userId);
+    console.log(`🏸 User ${userId} favorited Court ${courtId}`);
+    res.json({message: "Court favorited", result});
+  } catch (err) {
+    console.error("favoriteCourt error:", err);
+    res.status(500).json({error: "Server error while favoriting court"});
+  }
+}
+
+/**
+ * unfavorite
+ */
+async function unfavoriteCourt(req, res) {
+    try {
+        const { id:courtId } = req.params;
+        const userId  = req.user.userId;
+
+        if (!userId) {
+            return res.status(400).json({ error: "Missing userId" });
+        }
+
+        const result = await courtService.unfavoriteCourt(courtId, userId);
+        console.log(`🏸 User ${userId} unfavorited Court ${courtId}`);
+        res.json({ message: "Court un-favorited", result });
+
+    } catch (err) {
+        console.error("unfavoriteCourt error:", err);
+        res.status(500).json({ error: "Server error while unfavoriting court" });
+    }
+}
+
+/**
+ * add a comment
+ */
+async function addComment(req, res) {
+    try {
+        const { id:courtId } = req.params; // courtId
+        const userId  = req.user.userId;
+        const { description } = req.body;
+
+        if (!userId) {
+          return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        if (!description || description.trim() === "") {
+          return res.status(400).json({ error: "Comment description is required" });
+        }
+
+        const comment = await courtService.addComment(courtId, userId, description);
+        console.log(`💬 User ${userId} commented on Court ${courtId}: ${description}`);
+        res.json({ message: "Comment added", comment });
+
+    } catch (err) {
+        console.error("addComment error:", err);
+        res.status(500).json({ error: "Server error while adding comment" });
+    }
+}
+
+/**
+ * get all comments for a court
+ */
+async function getComments(req, res) {
+    try {
+        const { id } = req.params; // courtId
+
+        const comments = await courtService.getComments(id);
+        res.json(comments);
+
+    } catch (err) {
+        console.error("getComments error:", err);
+        res.status(500).json({ error: "Server error fetching comments" });
+    }
+}
+
+
+module.exports = { 
+  searchCourts, 
+  rateCourt, 
+  getCourtRatings,
+  favoriteCourt,
+  unfavoriteCourt,
+  addComment,
+  getComments,
+};
