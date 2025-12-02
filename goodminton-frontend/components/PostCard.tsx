@@ -13,13 +13,13 @@ import { router } from "expo-router";
 import { useAuth } from "../services/authContext";
 import { postsAPI } from "../services/api";
 import EditPostModal from "./EditPostModal";
-import { Heart, Mail } from "lucide-react-native";
+import { Heart, Mail, MessagesSquare } from "lucide-react-native";
 import LikeListModal, { LikeUser } from "./LikeListModal";
 
 /**
  * Interface for Post data structure
  */
-interface Post {
+export interface Post {
   _id: string;
   title: string;
   description: string;
@@ -27,8 +27,8 @@ interface Post {
   likes?: string[];
   author: {
     _id: string;
-    profile: {
-      displayName: string;
+    profile?: {
+      displayName?: string;
       avatar?: string;
     };
     email: string;
@@ -282,6 +282,10 @@ export default function PostCard({
     handleToggleLike();
   };
 
+  const handleViewCommentsPress = () => {
+    router.push(`/posts/${post._id}/comments`);
+  };
+
   return (
     <>
       <View style={styles.card}>
@@ -323,39 +327,53 @@ export default function PostCard({
         <Text style={styles.description}>{post.description}</Text>
 
         <View style={styles.footerRow}>
-          <Pressable
-            style={[
-              styles.likeButton,
-              isLiked ? styles.likeButtonActive : undefined,
-            ]}
-            onPress={handleOpenLikesModal}
-            accessibilityRole="button"
-            accessibilityLabel="View who liked this post"
-            accessibilityState={{
-              busy: isFetchingLikes,
-              expanded: isLikeModalVisible,
-            }}
-          >
+          <View style={styles.footerLeft}>
             <Pressable
-              style={styles.heartIconButton}
-              onPress={handleHeartPress}
-              disabled={isLiking}
+              style={[
+                styles.likeButton,
+                isLiked ? styles.likeButtonActive : undefined,
+              ]}
+              onPress={handleOpenLikesModal}
               accessibilityRole="button"
-              accessibilityState={{ disabled: isLiking, selected: isLiked }}
-              accessibilityLabel={isLiked ? "Unlike post" : "Like post"}
+              accessibilityLabel="View who liked this post"
+              accessibilityState={{
+                busy: isFetchingLikes,
+                expanded: isLikeModalVisible,
+              }}
             >
-              <Heart
-                size={20}
-                color={isLiked ? "#E63946" : "#666"}
-                fill={isLiked ? "#E63946" : "transparent"}
-              />
+              <Pressable
+                style={styles.heartIconButton}
+                onPress={handleHeartPress}
+                disabled={isLiking}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: isLiking, selected: isLiked }}
+                accessibilityLabel={isLiked ? "Unlike post" : "Like post"}
+              >
+                <Heart
+                  size={20}
+                  color={isLiked ? "#E63946" : "#666"}
+                  fill={isLiked ? "#E63946" : "transparent"}
+                />
+              </Pressable>
+              <View style={styles.likeInfo}>
+                <Text style={styles.likeCountText}>{likeCount}</Text>
+              </View>
             </Pressable>
-            <View style={styles.likeInfo}>
-              <Text style={styles.likeCountText}>{likeCount}</Text>
-            </View>
-          </Pressable>
+            <Pressable
+              style={styles.commentsButton}
+              onPress={handleViewCommentsPress}
+              accessibilityRole="button"
+              accessibilityLabel="View comments"
+            >
+              <Text>
+                <MessagesSquare color="#0E5B37" size={20} />
+              </Text>
+            </Pressable>
+          </View>
           <Pressable style={styles.replyButton} onPress={handleReplyPress}>
-            <Text style={styles.replyButtonText}><Mail color="#0E5B37" size={20} /></Text>
+            <Text style={styles.replyButtonText}>
+              <Mail color="#0E5B37" size={20} />
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -585,10 +603,29 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans_500Medium",
     color: "#0E5B37",
   },
+  commentsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    borderRadius: 8,
+    marginLeft: 8,
+    flexShrink: 1,
+  },
+
   footerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginTop: 8,
+  },
+  footerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginRight: 12,
   },
   likeButton: {
     flexDirection: "row",

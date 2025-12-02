@@ -467,6 +467,52 @@ export const postsAPI = {
     const response = await api.get(`/posts/${postId}/likes`);
     return response.data;
   },
+
+  /**
+   * Fetch all comments for a specific post
+   */
+  getComments: async (postId: string) => {
+    const response = await api.get(`/posts/${postId}/comments`);
+    return response.data;
+  },
+
+  /**
+   * Create a new comment on a post
+   */
+  addComment: async (postId: string, content: string) => {
+    const response = await api.post(`/posts/${postId}/comments`, { content });
+    return response.data;
+  },
+
+  /**
+   * Toggle like state for a comment
+   */
+  toggleCommentLike: async (postId: string, commentId: string) => {
+    const response = await api.post(
+      `/posts/${postId}/comments/${commentId}/like`
+    );
+    return response.data;
+  },
+
+  /**
+   * Remove like from a comment
+   */
+  unlikeComment: async (postId: string, commentId: string) => {
+    const response = await api.post(
+      `/posts/${postId}/comments/${commentId}/unlike`
+    );
+    return response.data;
+  },
+
+  /**
+   * Get the list of users who liked a specific comment
+   */
+  getCommentLikes: async (postId: string, commentId: string) => {
+    const response = await api.get(
+      `/posts/${postId}/comments/${commentId}/likes`
+    );
+    return response.data;
+  },
 };
 
 export interface Conversation {

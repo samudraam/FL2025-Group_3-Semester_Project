@@ -77,4 +77,22 @@ router.post(
   postController.toggleLikeComment
 );
 
+// @route   POST /api/posts/:postId/comments/:commentId/unlike
+// @desc    取消点赞评论 (Explicit unlike endpoint for a comment)
+// @access  Private
+router.post(
+  "/:postId/comments/:commentId/unlike",
+  authenticateToken,
+  postController.unlikeComment
+);
+
+// @route   GET /api/posts/:postId/comments/:commentId/likes
+// @desc    获取评论的点赞用户列表
+// @access  Private
+router.get(
+  "/:postId/comments/:commentId/likes",
+  authenticateToken,
+  postController.getCommentLikes
+);
+
 module.exports = router;

@@ -319,7 +319,10 @@ exports.addComment = async (req, res) => {
       author: authorId,
     });
 
-    await newComment.populate("author", "profile.displayName profile.avatar");
+    await newComment.populate(
+      "author",
+      "profile.displayName profile.avatar email"
+    );
 
     res.status(201).json({
       success: true,
@@ -346,7 +349,7 @@ exports.getPostComments = async (req, res) => {
     }
 
     const comments = await Comment.find({ post: postId })
-      .populate("author", "profile.displayName profile.avatar")
+      .populate("author", "profile.displayName profile.avatar email")
       .sort({ createdAt: 1 }); // 1 for ascending (oldest first)
 
     res.status(200).json({ success: true, count: comments.length, comments });
@@ -418,7 +421,8 @@ exports.toggleLikeComment = async (req, res) => {
     }
 
     const userIdObjectId = new mongoose.Types.ObjectId(userId);
-    const hasLiked = comment.likes.includes(userIdObjectId);
+    const likes = comment.likes || [];
+    const hasLiked = likes.some((likeId) => likeId.equals(userIdObjectId));
 
     if (hasLiked) {
       // 取消点赞 (Unlike)
@@ -441,6 +445,97 @@ exports.toggleLikeComment = async (req, res) => {
     res.status(500).json({
       success: false,
       error: "Failed to toggle like status on comment.",
+    });
+  }
+};
+
+/**
+ * 取消点赞评论 (Explicit unlike for a comment)
+ * @route   POST /api/posts/:postId/comments/:commentId/unlike
+ */
+exports.unlikeComment = async (req, res) => {
+  try {
+    const { commentId } = req.params;
+    const userId = req.user.userId;
+
+    const comment = await Comment.findById(commentId);
+    if (!comment) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Comment not found." });
+    }
+
+    const userIdObjectId = new mongoose.Types.ObjectId(userId);
+    const likes = comment.likes || [];
+    const hasLiked = likes.some((likeId) => likeId.equals(userIdObjectId));
+
+    if (!hasLiked) {
+      return res.status(200).json({
+        success: true,
+        message: "Comment already unliked.",
+        liked: false,
+        likeCount: comment.likes.length,
+      });
+    }
+
+    comment.likes.pull(userIdObjectId);
+    await comment.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Comment unliked.",
+      liked: false,
+      likeCount: comment.likes.length,
+    });
+  } catch (error) {
+    console.error("Unlike comment error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to unlike comment.",
+    });
+  }
+};
+
+/**
+ * 获取评论的点赞用户列表
+ * Get the list of users who liked a comment
+ * @route   GET /api/posts/:postId/comments/:commentId/likes
+ */
+exports.getCommentLikes = async (req, res) => {
+  try {
+    const { commentId } = req.params;
+
+    const comment = await Comment.findById(commentId).populate({
+      path: "likes",
+      select: "profile.displayName profile.avatar email",
+    });
+
+    if (!comment) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Comment not found." });
+    }
+
+    const likes =
+      comment.likes?.map((userDoc) => ({
+        _id: userDoc._id,
+        username:
+          userDoc.profile?.displayName || userDoc.email || "Goodminton user",
+        profile: {
+          displayName:
+            userDoc.profile?.displayName ||
+            userDoc.email?.split("@")[0] ||
+            "Player",
+          avatar: userDoc.profile?.avatar || null,
+        },
+      })) ?? [];
+
+    return res.status(200).json({ success: true, likes });
+  } catch (error) {
+    console.error("Get comment likes error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to fetch comment likes.",
     });
   }
 };
