@@ -16,6 +16,12 @@ import {
   type CourtSummary,
   postsAPI,
 } from "../services/api";
+import {
+  buildDateFromInputs,
+  createEmptyDateTimeInputs,
+  sanitizeNumericInput,
+  type DateTimeInputs,
+} from "./events/eventFormUtils";
 
 interface CreatePostModalProps {
   visible: boolean;
@@ -26,69 +32,6 @@ interface CreatePostModalProps {
 
 type CreatorMode = "post" | "event";
 type LocationMode = "court" | "custom";
-type DateTimeInputs = {
-  year: string;
-  month: string;
-  day: string;
-  hour: string;
-  minute: string;
-};
-
-const createEmptyDateTimeInputs = (): DateTimeInputs => ({
-  year: "",
-  month: "",
-  day: "",
-  hour: "",
-  minute: "",
-});
-
-/**
- * Keeps only numeric characters and limits the length of a date fragment.
- */
-const sanitizeNumericInput = (value: string, maxLength: number) => {
-  return value.replace(/\D/g, "").slice(0, maxLength);
-};
-
-/**
- * Builds a valid Date object from segmented date/time inputs or returns null.
- */
-const buildDateFromInputs = (inputs: DateTimeInputs) => {
-  const { year, month, day, hour, minute } = inputs;
-  if (!year || !month || !day || !hour || !minute) {
-    return null;
-  }
-
-  const yearNum = Number(year);
-  const monthNum = Number(month);
-  const dayNum = Number(day);
-  const hourNum = Number(hour);
-  const minuteNum = Number(minute);
-
-  if (
-    Number.isNaN(yearNum) ||
-    Number.isNaN(monthNum) ||
-    Number.isNaN(dayNum) ||
-    Number.isNaN(hourNum) ||
-    Number.isNaN(minuteNum)
-  ) {
-    return null;
-  }
-
-  const date = new Date(yearNum, monthNum - 1, dayNum, hourNum, minuteNum);
-
-  if (
-    date.getFullYear() !== yearNum ||
-    date.getMonth() !== monthNum - 1 ||
-    date.getDate() !== dayNum ||
-    date.getHours() !== hourNum ||
-    date.getMinutes() !== minuteNum
-  ) {
-    return null;
-  }
-
-  return date;
-};
-
 /**
  * Modal component for creating either a standard post or a community event.
  */

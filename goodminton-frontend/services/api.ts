@@ -285,6 +285,16 @@ export interface CommunityEventPayload {
   visibility?: 'community' | 'public';
 }
 
+export interface UpdateCommunityEventPayload {
+  title?: string;
+  description?: string;
+  location?: string;
+  startAt?: string;
+  endAt?: string;
+  rsvpLimit?: number;
+  visibility?: 'community' | 'public';
+}
+
 export interface CommunityEventSummary {
   id: string;
   communityId: string;
@@ -410,6 +420,21 @@ export const communityEventsAPI = {
     eventId: string
   ): Promise<{ success: boolean; message?: string; error?: string; attendeeCount?: number }> => {
     const response = await api.delete(`/communities/${identifier}/events/${eventId}/rsvp`);
+    return response.data;
+  },
+  update: async (
+    identifier: string,
+    eventId: string,
+    payload: UpdateCommunityEventPayload
+  ): Promise<{ success: boolean; message?: string; error?: string; event?: CommunityEventSummary }> => {
+    const response = await api.put(`/communities/${identifier}/events/${eventId}`, payload);
+    return response.data;
+  },
+  delete: async (
+    identifier: string,
+    eventId: string
+  ): Promise<{ success: boolean; message?: string; error?: string }> => {
+    const response = await api.delete(`/communities/${identifier}/events/${eventId}`);
     return response.data;
   },
 };

@@ -32,6 +32,7 @@ import CommunitySummaryCard from "../../components/community/CommunitySummaryCar
 import CommunityFeedHeader from "../../components/community/CommunityFeedHeader";
 import CreatePostModal from "../../components/CreatePostModal";
 import EditCommunityModal from "../../components/EditCommunityModal";
+import EditEventModal from "../../components/EditEventModal";
 import { useAuth } from "../../services/authContext";
 
 const CommunityScreen = () => {
@@ -53,6 +54,10 @@ const CommunityScreen = () => {
   const [eventError, setEventError] = useState<string | null>(null);
   const [userEventRsvps, setUserEventRsvps] = useState<Set<string>>(new Set());
   const [rsvpLoadingId, setRsvpLoadingId] = useState<string | null>(null);
+  const [eventBeingEdited, setEventBeingEdited] =
+    useState<CommunityEventSummary | null>(null);
+  const [isEditEventVisible, setIsEditEventVisible] = useState(false);
+  const [eventDeleteId, setEventDeleteId] = useState<string | null>(null);
   const membershipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { user: authUser } = useAuth();
 
@@ -301,6 +306,94 @@ const CommunityScreen = () => {
     loadFeed();
   }, [loadFeed]);
 
+  const handleEventEditRequest = useCallback(
+    (targetEventId: string) => {
+      if (!identifier) {
+        Alert.alert("Missing context", "Community could not be resolved.");
+        return;
+      }
+      const target = events.find((entry) => entry.id === targetEventId) || null;
+      if (!target) {
+        Alert.alert("Event unavailable", "Unable to find that event.");
+        return;
+      }
+      setEventBeingEdited(target);
+      setIsEditEventVisible(true);
+    },
+    [events, identifier]
+  );
+
+  const handleCloseEditEventModal = useCallback(() => {
+    setIsEditEventVisible(false);
+    setEventBeingEdited(null);
+  }, []);
+
+  const handleEventEditSuccess = useCallback(() => {
+    setIsEditEventVisible(false);
+    setEventBeingEdited(null);
+    loadEvents();
+  }, [loadEvents]);
+
+  const handleEventDeleteRequest = useCallback(
+    (targetEventId: string) => {
+      if (!identifier) {
+        Alert.alert("Missing context", "Community could not be resolved.");
+        return;
+      }
+      const target = events.find((entry) => entry.id === targetEventId);
+      if (!target) {
+        Alert.alert("Event unavailable", "Unable to find that event.");
+        return;
+      }
+      Alert.alert(
+        "Delete event",
+        `Are you sure you want to delete "${target.title}"?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              setEventDeleteId(targetEventId);
+              try {
+                const response = await communityEventsAPI.delete(
+                  identifier,
+                  targetEventId
+                );
+                if (!response.success) {
+                  throw new Error(
+                    response.error || "Unable to delete the event."
+                  );
+                }
+                setEvents((previous) =>
+                  previous.filter((entry) => entry.id !== targetEventId)
+                );
+                setUserEventRsvps((previous) => {
+                  if (!previous.has(targetEventId)) {
+                    return previous;
+                  }
+                  const next = new Set(previous);
+                  next.delete(targetEventId);
+                  return next;
+                });
+                await loadEvents();
+              } catch (error: any) {
+                const message =
+                  error?.response?.data?.error ||
+                  error?.message ||
+                  "Unable to delete the event.";
+                Alert.alert("Delete event", message);
+              } finally {
+                setEventDeleteId(null);
+              }
+            },
+          },
+        ]
+      );
+    },
+    [events, identifier, loadEvents]
+  );
+
   type FeedItem =
     | { kind: "post"; data: Post }
     | { kind: "event"; data: CommunityEventSummary };
@@ -418,9 +511,12 @@ const CommunityScreen = () => {
         const eventClosed = isEventInPast(event.startAt);
         const isRsvped = userEventRsvps.has(event.id);
         const isPending = rsvpLoadingId === event.id;
+        const canModerateEvent =
+          canManageCommunity || event.createdBy?.id === authUser?.id;
         return (
           <View style={styles.postCard}>
             <CommunityEventCard
+              eventId={event.id}
               title={event.title}
               hostName={
                 event.createdBy?.displayName ||
@@ -435,7 +531,13 @@ const CommunityScreen = () => {
               isRsvpDisabled={eventClosed}
               isRsvped={isRsvped}
               isRsvpPending={isPending}
+              canManage={!!canModerateEvent}
+              isActionPending={eventDeleteId === event.id}
               onPressRSVP={() => handleEventRsvpToggle(event)}
+              onEditEvent={canModerateEvent ? handleEventEditRequest : undefined}
+              onDeleteEvent={
+                canModerateEvent ? handleEventDeleteRequest : undefined
+              }
             />
           </View>
         );
@@ -461,6 +563,10 @@ const CommunityScreen = () => {
       rsvpLoadingId,
       userEventRsvps,
       canManageCommunity,
+      authUser?.id,
+      eventDeleteId,
+      handleEventEditRequest,
+      handleEventDeleteRequest,
     ]
   );
 
@@ -611,6 +717,13 @@ const CommunityScreen = () => {
         onClose={handleCloseComposeModal}
         onPostCreated={handlePostCreated}
         communitySlug={identifier ?? undefined}
+      />
+      <EditEventModal
+        visible={isEditEventVisible}
+        communitySlug={identifier ?? null}
+        event={eventBeingEdited}
+        onClose={handleCloseEditEventModal}
+        onEventUpdated={handleEventEditSuccess}
       />
       <EditCommunityModal
         visible={isEditCommunityVisible}

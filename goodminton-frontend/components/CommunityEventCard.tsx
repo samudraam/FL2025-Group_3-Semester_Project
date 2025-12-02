@@ -1,14 +1,17 @@
-import React, { memo, useCallback } from "react";
+import React, { memo, useCallback, useState } from "react";
 import {
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
   ViewStyle,
+  Modal,
+  Pressable,
 } from "react-native";
-import { Clock3, MapPin } from "lucide-react-native";
+import { Clock3, MapPin, MoreVertical } from "lucide-react-native";
 
 export interface CommunityEventCardProps {
+  eventId: string;
   title: string;
   hostName: string;
   communityName: string;
@@ -19,16 +22,21 @@ export interface CommunityEventCardProps {
   isRsvpDisabled?: boolean;
   isRsvped?: boolean;
   isRsvpPending?: boolean;
+  canManage?: boolean;
+  isActionPending?: boolean;
   containerStyle?: ViewStyle;
   onPressHost?: () => void;
   onPressCommunity?: () => void;
   onPressRSVP?: () => void;
+  onEditEvent?: (eventId: string) => void;
+  onDeleteEvent?: (eventId: string) => void;
 }
 
 /**
  * Displays a community event preview with host metadata, logistics, and RSVP CTA.
  */
 const CommunityEventCardComponent: React.FC<CommunityEventCardProps> = ({
+  eventId,
   title,
   hostName,
   communityName,
@@ -39,10 +47,14 @@ const CommunityEventCardComponent: React.FC<CommunityEventCardProps> = ({
   isRsvpDisabled = false,
   isRsvped = false,
   isRsvpPending = false,
+  canManage = false,
+  isActionPending = false,
   containerStyle,
   onPressHost,
   onPressCommunity,
   onPressRSVP,
+  onEditEvent,
+  onDeleteEvent,
 }) => {
   const buttonDisabled = isRsvpDisabled || isRsvpPending;
   const rsvpLabel = isRsvpDisabled
@@ -74,12 +86,54 @@ const CommunityEventCardComponent: React.FC<CommunityEventCardProps> = ({
     onPressRSVP?.();
   }, [buttonDisabled, onPressRSVP]);
 
+  const [isMenuVisible, setIsMenuVisible] = useState(false);
+
+  const handleOpenMenu = useCallback(() => {
+    if (!canManage || isActionPending) {
+      return;
+    }
+    setIsMenuVisible(true);
+  }, [canManage, isActionPending]);
+
+  const handleCloseMenu = useCallback(() => {
+    setIsMenuVisible(false);
+  }, []);
+
+  const handleEditPress = useCallback(() => {
+    onEditEvent?.(eventId);
+    handleCloseMenu();
+  }, [eventId, handleCloseMenu, onEditEvent]);
+
+  const handleDeletePress = useCallback(() => {
+    onDeleteEvent?.(eventId);
+    handleCloseMenu();
+  }, [eventId, handleCloseMenu, onDeleteEvent]);
+
   return (
     <View style={[styles.cardContainer, containerStyle]}>
       <View style={styles.header}>
-        <Text style={styles.title} numberOfLines={1} accessibilityRole="header">
-          {title}
-        </Text>
+        <View style={styles.headerTopRow}>
+          <Text
+            style={styles.title}
+            numberOfLines={1}
+            accessibilityRole="header"
+          >
+            {title}
+          </Text>
+          {canManage ? (
+            <TouchableOpacity
+              onPress={handleOpenMenu}
+              accessibilityRole="button"
+              accessibilityLabel="Open event actions"
+              accessibilityState={{ disabled: isActionPending }}
+              disabled={isActionPending}
+              style={styles.menuButton}
+              activeOpacity={0.7}
+            >
+              <MoreVertical color="#FFFFFF" size={20} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
         <View style={styles.metaRow}>
           <TouchableOpacity
             onPress={handleHostPress}
@@ -139,6 +193,45 @@ const CommunityEventCardComponent: React.FC<CommunityEventCardProps> = ({
       >
         <Text style={styles.rsvpLabel}>{rsvpLabel}</Text>
       </TouchableOpacity>
+
+      <Modal
+        transparent
+        visible={isMenuVisible}
+        animationType="fade"
+        onRequestClose={handleCloseMenu}
+      >
+        <Pressable style={styles.modalOverlay} onPress={handleCloseMenu}>
+          <Pressable
+            style={styles.menuDropdown}
+            onPress={(event) => event.stopPropagation()}
+            accessibilityRole="menu"
+          >
+            {onEditEvent ? (
+              <>
+                <Pressable
+                  style={styles.menuOption}
+                  onPress={handleEditPress}
+                  accessibilityRole="menuitem"
+                >
+                  <Text style={styles.menuOptionText}>Edit event</Text>
+                </Pressable>
+                <View style={styles.menuDivider} />
+              </>
+            ) : null}
+            {onDeleteEvent ? (
+              <Pressable
+                style={styles.menuOption}
+                onPress={handleDeletePress}
+                accessibilityRole="menuitem"
+              >
+                <Text style={[styles.menuOptionText, styles.deleteOptionText]}>
+                  {isActionPending ? "Working..." : "Delete event"}
+                </Text>
+              </Pressable>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
@@ -161,10 +254,19 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 8,
   },
+  headerTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
   title: {
     color: "#FFFFFF",
     fontSize: 20,
     fontFamily: "DMSans_700Bold",
+  },
+  menuButton: {
+    padding: 4,
   },
   metaRow: {
     flexDirection: "row",
@@ -232,6 +334,41 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontFamily: "DMSans_600SemiBold",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.25)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  menuDropdown: {
+    width: 220,
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  menuOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  menuOptionText: {
+    fontSize: 15,
+    fontFamily: "DMSans_500Medium",
+    color: "#1B1E1C",
+  },
+  deleteOptionText: {
+    color: "#C62525",
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: "#E0E0E0",
+    marginHorizontal: 16,
   },
 });
 

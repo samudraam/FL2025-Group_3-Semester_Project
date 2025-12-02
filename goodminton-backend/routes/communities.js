@@ -70,6 +70,16 @@ router.get(
   optionalAuth,
   communityController.getCommunityEvents
 );
+router.put(
+  "/:identifier/events/:eventId",
+  authenticateToken,
+  communityController.updateCommunityEvent
+);
+router.delete(
+  "/:identifier/events/:eventId",
+  authenticateToken,
+  communityController.deleteCommunityEvent
+);
 router.post(
   "/:identifier/events/:eventId/rsvp",
   authenticateToken,
