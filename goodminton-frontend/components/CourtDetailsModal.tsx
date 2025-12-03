@@ -11,12 +11,12 @@ import {
   Dimensions,
   Linking,
   Alert,
+  FlatList,
   ActivityIndicator,
   Platform,
   StatusBar,
 } from "react-native";
-
-const API_BASE_URL = "http://localhost:3001/api";
+import { Ionicons } from "@expo/vector-icons"; 
 
 type Court = {
   _id: string;
@@ -24,127 +24,213 @@ type Court = {
   address?: string;
   price?: number;
   rating?: number;
-  location: { type: string; coordinates: [number, number] };
+  openingHours?: {
+    open: string;
+    close: string;
+  };
+  courts: number; 
+  availableCourts: number;
+  location: {
+    type: string;
+    coordinates: [number, number];
+  };
   contact?: string;
 };
 
-type TimeSlot = { time: string; isBooked: boolean; bookedBy?: string };
+type TimeSlot = {
+  time: string; 
+  isBooked: boolean;
+  bookedBy?: string; 
+};
 
-type CourtSchedule = { courtId: number; courtName: string; slots: TimeSlot[] };
+type CourtSchedule = {
+  courtId: number; 
+  courtName: string; 
+  slots: TimeSlot[];
+};
 
-type Props = { court: Court | null; visible: boolean; onClose: () => void; userLocation: { latitude: number; longitude: number } | null };
+type Props = {
+  court: Court | null;
+  visible: boolean;
+  onClose: () => void;
+  userLocation: {
+    latitude: number;
+    longitude: number;
+  } | null;
+};
 
 const { width } = Dimensions.get("window");
-
-const HOURS = Array.from({ length: 14 }, (_, i) => `${i + 8}:00`); // 8:00 - 21:00
 
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
-    Math.sin(dLat / 2) ** 2 +
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) *
       Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 }
 
-export default function CourtDetailsModal({ court, visible, onClose, userLocation }: Props) {
+const generateMockSchedule = (courtCount: number, dateStr: string): CourtSchedule[] => {
+  const schedule: CourtSchedule[] = [];
+  const times = [
+    "09:00", "10:00", "11:00", "12:00", "13:00", 
+    "14:00", "15:00", "16:00", "17:00", "18:00", 
+    "19:00", "20:00", "21:00"
+  ];
+
+  for (let i = 1; i <= courtCount; i++) {
+    const slots: TimeSlot[] = times.map((time) => ({
+      time,
+      isBooked: Math.random() < 0.3, 
+    }));
+    schedule.push({
+      courtId: i,
+      courtName: `Court ${i}`,
+      slots,
+    });
+  }
+  return schedule;
+};
+
+export default function CourtDetailsModal({
+  court,
+  visible,
+  onClose,
+  userLocation,
+}: Props) {
   const { user } = useAuth();
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
+  
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [schedule, setSchedule] = useState<CourtSchedule[]>([]);
   const [loadingSchedule, setLoadingSchedule] = useState(false);
 
-  const todayStr = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-
   useEffect(() => {
-    if (visible && court) loadSchedule();
-  }, [visible, court]);
+    if (visible && court) {
+      loadSchedule();
+    }
+  }, [visible, court, selectedDate]);
 
   const loadSchedule = async () => {
-    if (!court) return;
     setLoadingSchedule(true);
-    try {
-      const response = await axios.get(`${API_BASE_URL}/reservations/${court._id}`, { params: { date: todayStr } });
-      const bookings: { hour: string; userId: string }[] = response.data.slots || [];
-
-      const slots: TimeSlot[] = HOURS.map((hour) => {
-        const booked = bookings.find((b) => b.hour === hour);
-        return { time: hour, isBooked: !!booked, bookedBy: booked?.userId };
-      });
-
-      setSchedule([{ courtId: 1, courtName: "Court 1", slots }]);
-    } catch (error) {
-      console.error("Failed to load schedule:", error);
-      Alert.alert("Error", "Could not load court availability.");
-    } finally {
+    setTimeout(() => {
+      if (court) {
+        const mockData = generateMockSchedule(court.courts || 4, selectedDate.toISOString());
+        setSchedule(mockData);
+      }
       setLoadingSchedule(false);
-    }
-  };
-
-  const handleBooking = async (time: string) => {
-    if (!user?.id) return Alert.alert("Login Required", "Please login to book a court.");
-    Alert.alert("Confirm Booking", `Book Court 1 at ${time}?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Confirm",
-        onPress: async () => {
-          try {
-            await axios.post(`${API_BASE_URL}/reservations/${court!._id}/create`, {
-              userId: user.id,
-              date: todayStr,
-              hour: time,
-            });
-            Alert.alert("Success", "Booking confirmed!");
-            loadSchedule();
-          } catch (error) {
-            console.error("Booking failed:", error);
-            Alert.alert("Error", "Booking failed. Please try again.");
-          }
-        },
-      },
-    ]);
+    }, 500);
   };
 
   if (!court) return null;
 
   const handleCallPress = () => {
-    if (court.contact) Linking.openURL(`tel:${court.contact}`);
+    if (court.contact) {
+      Linking.openURL(`tel:${court.contact}`);
+    }
   };
 
   const distanceText =
     userLocation && court.location?.coordinates
-      ? `${getDistance(userLocation.latitude, userLocation.longitude, court.location.coordinates[1], court.location.coordinates[0]).toFixed(2)} km`
+      ? `${getDistance(
+          userLocation.latitude,
+          userLocation.longitude,
+          court.location.coordinates[1],
+          court.location.coordinates[0]
+        ).toFixed(2)} km`
       : "Unknown";
 
   const handleSubmitRating = async () => {
-    if (!selectedRating) return Alert.alert("Please select a score!");
-    if (!user?.id) return Alert.alert("Please login first.");
+    if (!selectedRating) {
+      Alert.alert("Please select a score!");
+      return;
+    }
+    if (!user?.id) {
+      Alert.alert("Please login first.");
+      return;
+    }
 
     try {
-      const res = await axios.post(`${API_BASE_URL}/courts/${court._id}/rate`, { userId: user.id, score: selectedRating });
+      const res = await axios.post(
+        `http://localhost:3001/api/courts/${court._id}/rate`,
+        { userId: user.id, score: selectedRating }
+      );
       Alert.alert("Success", `New Rating: ${res.data.newAverage.toFixed(1)}`);
       court.rating = res.data.newAverage;
-    } catch {
+    } catch (err) {
+      console.error("Rating failed:", err);
       Alert.alert("Rating failed, please try again.");
     }
   };
 
+  const handleBooking = async (courtId: number, time: string) => {
+    if (!user?.id) {
+      Alert.alert("Login Required", "Please login to book a court.");
+      return;
+    }
+
+    Alert.alert(
+      "Confirm Booking",
+      `Book Court ${courtId} at ${time}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Confirm",
+          onPress: async () => {
+            try {
+              setSchedule((prev) =>
+                prev.map((c) => {
+                  if (c.courtId === courtId) {
+                    return {
+                      ...c,
+                      slots: c.slots.map((slot) =>
+                        slot.time === time ? { ...slot, isBooked: true, bookedBy: user.id } : slot
+                      ),
+                    };
+                  }
+                  return c;
+                })
+              );
+              Alert.alert("Success", "Booking confirmed! Check your schedule.");
+            } catch (error) {
+              Alert.alert("Error", "Booking failed.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const dateOptions = [0, 1, 2].map((offset) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    return d;
+  });
+
   return (
-    <Modal animationType="slide" transparent={false} visible={visible} onRequestClose={onClose}>
+    <Modal
+      animationType="slide"
+      transparent={false}
+      visible={visible}
+      onRequestClose={onClose}
+    >
       <View style={[styles.safeAreaContainer, styles.safeAreaPadding]}>
+        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.backButton}>
             <Text style={styles.backButtonText}>{"< Back"}</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {court.name}
-          </Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>{court.name}</Text>
           <View style={{ width: 60 }} />
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
+          {/* Info Section */}
           <View style={styles.infoSection}>
             {court.address && <Text style={styles.address}>{court.address}</Text>}
             <View style={styles.infoRow}>
@@ -153,48 +239,100 @@ export default function CourtDetailsModal({ court, visible, onClose, userLocatio
               </TouchableOpacity>
               <Text style={styles.distanceText}>📍 {distanceText}</Text>
             </View>
-            <Text style={styles.ratingText}>⭐ Rating: {court.rating?.toFixed(1) ?? "N/A"}</Text>
+            <Text style={styles.ratingText}>
+              ⭐ Rating: {court.rating?.toFixed(1) ?? "N/A"}
+            </Text>
           </View>
 
           <View style={styles.divider} />
 
-          <Text style={styles.sectionTitle}>Book a Court ({todayStr})</Text>
+          {/* Booking Section */}
+          <Text style={styles.sectionTitle}>Book a Court</Text>
+          
+          {/* Date Selector */}
+          <View style={styles.dateSelector}>
+            {dateOptions.map((date, index) => {
+              const isSelected = date.toDateString() === selectedDate.toDateString();
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={[styles.dateChip, isSelected && styles.dateChipSelected]}
+                  onPress={() => setSelectedDate(date)}
+                >
+                  <Text style={[styles.dateText, isSelected && styles.dateTextSelected]}>
+                    {date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' })}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Schedule Grid */}
           {loadingSchedule ? (
             <ActivityIndicator size="large" color="#0E5B37" style={{ marginTop: 20 }} />
           ) : (
             <View style={styles.scheduleContainer}>
-              {schedule[0]?.slots.map((slot, idx) => (
-                <TouchableOpacity
-                  key={idx}
-                  disabled={slot.isBooked}
-                  style={[styles.timeSlot, slot.isBooked ? styles.slotBooked : styles.slotAvailable]}
-                  onPress={() => handleBooking(slot.time)}
-                >
-                  <Text style={[styles.timeText, slot.isBooked ? styles.timeTextBooked : styles.timeTextAvailable]}>
-                    {slot.time}
-                  </Text>
-                  <Text style={styles.slotStatusText}>{slot.isBooked ? "Full" : "Book"}</Text>
-                </TouchableOpacity>
+              {schedule.map((courtItem) => (
+                <View key={courtItem.courtId} style={styles.courtRowContainer}>
+                  <Text style={styles.courtNameLabel}>{courtItem.courtName}</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    {courtItem.slots.map((slot, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        disabled={slot.isBooked}
+                        style={[
+                          styles.timeSlot,
+                          slot.isBooked ? styles.slotBooked : styles.slotAvailable
+                        ]}
+                        onPress={() => handleBooking(courtItem.courtId, slot.time)}
+                      >
+                        <Text style={[
+                          styles.timeText, 
+                          slot.isBooked ? styles.timeTextBooked : styles.timeTextAvailable
+                        ]}>
+                          {slot.time}
+                        </Text>
+                        <Text style={styles.slotStatusText}>
+                          {slot.isBooked ? "Full" : "Book"}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
               ))}
             </View>
           )}
 
           <View style={styles.divider} />
 
+          {/* Rating Section */}
           <View style={styles.ratingContainer}>
             <Text style={styles.sectionTitle}>Rate this place</Text>
             <View style={styles.ratingRow}>
               {[1, 2, 3, 4, 5].map((num) => (
                 <TouchableOpacity
                   key={num}
-                  style={[styles.ratingButton, selectedRating === num && styles.ratingSelected]}
+                  style={[
+                    styles.ratingButton,
+                    selectedRating === num && styles.ratingSelected,
+                  ]}
                   onPress={() => setSelectedRating(num)}
                 >
-                  <Text style={[styles.ratingNumber, selectedRating === num && styles.ratingNumberSelected]}>{num}</Text>
+                  <Text
+                    style={[
+                      styles.ratingNumber,
+                      selectedRating === num && styles.ratingNumberSelected,
+                    ]}
+                  >
+                    {num}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
-            <TouchableOpacity style={styles.submitBtn} onPress={handleSubmitRating}>
+            <TouchableOpacity
+              style={styles.submitBtn}
+              onPress={handleSubmitRating}
+            >
               <Text style={styles.submitText}>Submit Rating</Text>
             </TouchableOpacity>
           </View>
@@ -210,6 +348,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   safeAreaPadding: {
+    // Android 使用 StatusBar.currentHeight，iOS 使用固定的 50 来避开刘海
     paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 50,
   },
   header: {
@@ -280,8 +419,40 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     color: "#333",
   },
+  dateSelector: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  dateChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: "#f0f0f0",
+    borderRadius: 20,
+    marginRight: 10,
+  },
+  dateChipSelected: {
+    backgroundColor: "#0E5B37",
+  },
+  dateText: {
+    color: "#333",
+    fontWeight: "500",
+  },
+  dateTextSelected: {
+    color: "#fff",
+    fontWeight: "600",
+  },
   scheduleContainer: {
     paddingLeft: 16,
+  },
+  courtRowContainer: {
+    marginBottom: 20,
+  },
+  courtNameLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 8,
+    color: "#444",
   },
   timeSlot: {
     width: 70,
@@ -293,11 +464,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   slotAvailable: {
-    backgroundColor: "#E8F5E9",
+    backgroundColor: "#E8F5E9", 
     borderColor: "#C8E6C9",
   },
   slotBooked: {
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#F5F5F5", 
     borderColor: "#E0E0E0",
   },
   timeText: {
